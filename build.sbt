@@ -31,7 +31,7 @@ scalacOptions <++= (scalaVersion) map { sv =>
   }
 }
 
-crossScalaVersions := Seq("2.10.4", "2.11.2")
+crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1")
 
 description := "Utilities for working with Stateless Future."
 
