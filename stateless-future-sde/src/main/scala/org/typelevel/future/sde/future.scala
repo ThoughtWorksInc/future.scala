@@ -19,11 +19,11 @@ final class future extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro future.AnnotationBundle.macroTransform
 }
 
-object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[F, Throwable] })#T, Future] {
+object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[F, Throwable] })#T, Future.Stateless] {
 
   type MonadThrowable[F[_]] = MonadError[F, Throwable]
 
-  override val typeClass: MonadThrowable[Future] = new FutureInstances[Unit]
+  override val typeClass: MonadThrowable[Future.Stateless] = new FutureInstances[Unit]
 
   @bundle
   private[future] final class AnnotationBundle(context: whitebox.Context) extends Preprocessor(context) {
@@ -77,12 +77,12 @@ object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[
 
     import scala.language.implicitConversions
 
-    implicit final class AwaitOps[A0](val underlying: Future[A0]) extends AnyVal {
+    implicit final class AwaitOps[A0](val underlying: Future.Stateless[A0]) extends AnyVal {
       type A = A0
       def ! : A = macro AwaitBundle.postfixAwait
     }
 
-    implicit def await[A](future: Future[A]): A = macro AwaitBundle.prefixAwait
+    implicit def await[A](future: Future.Stateless[A]): A = macro AwaitBundle.prefixAwait
 
   }
 }
