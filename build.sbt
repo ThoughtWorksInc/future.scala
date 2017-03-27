@@ -1,9 +1,29 @@
-lazy val `stateless-future` = project
+//lazy val `stateless-future` = project
+//
+//lazy val `stateless-future-scalaz` = project.dependsOn(`stateless-future`, `stateless-future-scalatest` % Test)
+//
+//lazy val `stateless-future-sde` = project.dependsOn(`stateless-future-scalaz`, `stateless-future-scalatest` % Test)
+//
+//lazy val `stateless-future-scalatest` = project.dependsOn(`stateless-future-util`)
+//
+//lazy val `stateless-future-util` = project.dependsOn(`stateless-future`)
 
-lazy val `stateless-future-scalaz` = project.dependsOn(`stateless-future`, `stateless-future-scalatest` % Test)
+lazy val Continuation = project
 
-lazy val `stateless-future-sde` = project.dependsOn(`stateless-future-scalaz`, `stateless-future-scalatest` % Test)
+lazy val Future = project.dependsOn(Continuation)
 
-lazy val `stateless-future-scalatest` = project.dependsOn(`stateless-future-util`)
+lazy val Task = project.dependsOn(Continuation)
 
-lazy val `stateless-future-util` = project.dependsOn(`stateless-future`)
+lazy val `scalaz-ContinuationInstance` = project.dependsOn(Continuation)
+
+lazy val `scalatest-FutureFreeSpec` = project.dependsOn(Future, `concurrent-Converters`)
+
+lazy val `sde-continuation` = project.dependsOn(`scalaz-ContinuationInstance`)
+
+lazy val `concurrent-Execution` = project.dependsOn(Task)
+
+lazy val `concurrent-Converters` = project.dependsOn(Future, Continuation)
+
+lazy val unidoc = project
+  .enablePlugins(TravisUnidocTitle)
+  .settings(addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full))
