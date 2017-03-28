@@ -58,7 +58,7 @@ object Future {
     // @tailrec // Comment this because of https://issues.scala-lang.org/browse/SI-6574
     final def complete(value: Try[AwaitResult]): TailRec[Unit] = {
       state.get match {
-        case oldState@Left(handlers) => {
+        case oldState @ Left(handlers) => {
           if (state.compareAndSet(oldState, Right(value))) {
             tailcall(dispatch(handlers, value))
           } else {
@@ -78,7 +78,7 @@ object Future {
       * @usecase def completeWith(other: Future[AwaitResult]): Unit = ???
       */
     final def completeWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
-      implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
+        implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
       implicit def catcher: Catcher[TailRec[Unit]] = {
         case e: Throwable => {
           val value = Failure(e)
@@ -94,7 +94,7 @@ object Future {
     // @tailrec // Comment this annotation because of https://issues.scala-lang.org/browse/SI-6574
     final def tryComplete(value: Try[AwaitResult]): TailRec[Unit] = {
       state.get match {
-        case oldState@Left(handlers) => {
+        case oldState @ Left(handlers) => {
           if (state.compareAndSet(oldState, Right(value))) {
             tailcall(dispatch(handlers, value))
           } else {
@@ -114,7 +114,7 @@ object Future {
       * @usecase def tryCompleteWith(other: Future[AwaitResult]): Unit = ???
       */
     final def tryCompleteWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
-      implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
+        implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
       implicit def catcher: Catcher[TailRec[Unit]] = {
         case e: Throwable => {
           val value = Failure(e)
@@ -133,7 +133,7 @@ object Future {
         case Right(value) => {
           handler(value)
         }
-        case oldState@Left(tail) => {
+        case oldState @ Left(tail) => {
           if (state.compareAndSet(oldState, Left(tail.enqueue(handler)))) {
             done(())
           } else {
@@ -174,21 +174,21 @@ object Future {
     override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = {
       state.get match {
         case GotBoth(_, _) => handler(value)
-        case oldState@GotNeither(tail) => {
+        case oldState @ GotNeither(tail) => {
           if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
             done(())
           } else {
             onComplete(handler)
           }
         }
-        case oldState@GotA(a, tail) => {
+        case oldState @ GotA(a, tail) => {
           if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
             done(())
           } else {
             onComplete(handler)
           }
         }
-        case oldState@GotF(b, tail) => {
+        case oldState @ GotF(b, tail) => {
           if (state.compareAndSet(oldState, GotF(b, tail.enqueue(handler)))) {
             done(())
           } else {
