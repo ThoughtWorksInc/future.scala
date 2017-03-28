@@ -167,36 +167,40 @@ object Future {
   trait Zip[A, B] extends Future[(A, B)] {
     protected def state: AtomicReference[Zip.State[A, B]]
 
-    override final def value: Option[Try[(A, B)]] = state.get() match {
-      case (a: A, b: B) => Option(Try(a, b))
-    }
+    override final def value: Option[Try[(A, B)]] = ???
 
-    override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = {
-      state.get match {
-        case GotBoth(_, _) => handler(value)
-        case oldState @ GotNeither(tail) => {
-          if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
-            done(())
-          } else {
-            onComplete(handler)
-          }
-        }
-        case oldState @ GotA(a, tail) => {
-          if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
-            done(())
-          } else {
-            onComplete(handler)
-          }
-        }
-        case oldState @ GotF(b, tail) => {
-          if (state.compareAndSet(oldState, GotF(b, tail.enqueue(handler)))) {
-            done(())
-          } else {
-            onComplete(handler)
-          }
-        }
-      }
-    }
+    //      state.get() match {
+    //      case (a: A, b: B) => Option(Try(a, b))
+    //    }
+
+    override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = ???
+
+    //    {
+    //      state.get match {
+    //        case GotBoth(_, _) => handler(value)
+    //        case oldState@GotNeither(tail) => {
+    //          if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
+    //            done(())
+    //          } else {
+    //            onComplete(handler)
+    //          }
+    //        }
+    //        case oldState@GotA(a, tail) => {
+    //          if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
+    //            done(())
+    //          } else {
+    //            onComplete(handler)
+    //          }
+    //        }
+    //        case oldState@GotF(b, tail) => {
+    //          if (state.compareAndSet(oldState, GotF(b, tail.enqueue(handler)))) {
+    //            done(())
+    //          } else {
+    //            onComplete(handler)
+    //          }
+    //        }
+    //      }
+    //    }
   }
 
   object Zip {
