@@ -30,12 +30,16 @@ trait Future[+AwaitResult] extends Any with Continuation[AwaitResult, Unit] {
 object Future {
 
   /**
-    * A [[Future]] that will be completed when another [[Future]] or [[Task]] being completed.
+    * A [[Future]] that will be completed when another [[Future]] or [[Continuation.Task]] being completed.
     *
     * @param state The internal state that should never be accessed by other modules.
+    *
     */
   trait Promise[AwaitResult] extends Any with Future[AwaitResult] {
 
+    /**
+      * Returns the internal state that should never be accessed by other modules.
+      */
     protected def state: AtomicReference[Either[Queue[Try[AwaitResult] => TailRec[Unit]], Try[AwaitResult]]]
 
     private def dispatch(handlers: Queue[Try[AwaitResult] => TailRec[Unit]], value: Try[AwaitResult]): TailRec[Unit] = {
@@ -207,7 +211,7 @@ object Future {
 
     private final case class GotBoth[A, B](a: A, b: B) extends State[A, B]
 
-    def apply[A, B](continuationA: Continuation[A, Unit], continuationB: Continuation[B, Unit]): Zip[A, B] = {
+    def apply[A, B](continuationA: Task[A], continuationB: Task[B]): Zip[A, B] = {
       val zip = new AtomicReference[State[A, B]](GotNeither[A, B](Queue.empty)) with Zip[A, B] {
         override protected final def state: this.type = this
       }

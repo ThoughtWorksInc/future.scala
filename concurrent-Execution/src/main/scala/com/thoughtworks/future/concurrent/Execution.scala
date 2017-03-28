@@ -1,5 +1,5 @@
 package com.thoughtworks.future.concurrent
-import com.thoughtworks.future.Task
+import com.thoughtworks.future.Continuation.Task
 
 import scala.util.{Success, Try}
 
