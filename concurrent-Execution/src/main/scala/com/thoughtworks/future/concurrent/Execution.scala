@@ -1,7 +1,7 @@
 package com.thoughtworks.future.concurrent
 import com.thoughtworks.future.Continuation.Task
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * @author 杨博 (Yang Bo) &lt;pop.atry@gmail.com&gt;
@@ -50,6 +50,36 @@ object Execution {
       }
     }
 
+  }
+
+
+  final def blockingAwait[A](future: Task[A]): A = {
+    val lock = new AnyRef
+    lock.synchronized {
+      @volatile var result: Option[Try[A]] = None
+      implicit def catcher: Catcher[Unit] = {
+        case e: Exception => {
+          lock.synchronized {
+            result = Some(Failure(e))
+            lock.notifyAll()
+          }
+        }
+      }
+      future.foreach { u =>
+        lock.synchronized {
+          result = Some(Success(u))
+          lock.notify()
+        }
+      }
+      while (result == None) {
+        lock.wait()
+      }
+      val Some(some) = result
+      some match {
+        case Success(u) => u
+        case Failure(e) => throw e
+      }
+    }
   }
 
 }
