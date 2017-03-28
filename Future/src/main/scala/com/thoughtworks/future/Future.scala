@@ -12,7 +12,7 @@ import com.thoughtworks.future.Future.Promise.State
 /**
   * An stateful [[Continuation]] that represents an asynchronous operation already started.
   */
-trait Future[+AwaitResult] extends Any with Continuation[AwaitResult, Unit] {
+trait Future[+AwaitResult] extends Any with Task[AwaitResult] {
 
   /**
     * Tests if this [[Future]] is completed.
