@@ -29,7 +29,7 @@ trait Future[+AwaitResult] extends Any with Continuation[AwaitResult, Unit] {
 object Future {
 
   /**
-    * A [[Future]] that will be completed when another [[Future]] or [[Task]] being completed.
+    * A [[Future]] that will be completed when another [[Future]] or [[Continuation.Task]] being completed.
     */
   trait Promise[AwaitResult] extends Any with Future[AwaitResult] {
 
@@ -69,7 +69,6 @@ object Future {
 
     /**
       * Starts a waiting operation that will be completed when `other` being completed.
-      * @throws java.lang.IllegalStateException Passed to `catcher` when this [[Promise]] being completed more once.
       * @usecase def completeWith(other: Future[AwaitResult]): Unit = ???
       */
     final def completeWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
@@ -171,7 +170,7 @@ object Future {
     private final case class GotF[A, B](f: B, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
     private final case class GotBoth[A, B](a: A, b: B) extends State[A, B]
 
-    def apply[A, B](continuationA: Continuation[A, Unit], continuationB: Continuation[B, Unit]): Zip[A, B] = {
+    def apply[A, B](continuationA: Task[A], continuationB: Task[B]): Zip[A, B] = {
       val zip = new AtomicReference[State[A, B]](GotNeither[A, B](Queue.empty)) with Zip[A, B] {
         override protected final def state: this.type = this
       }

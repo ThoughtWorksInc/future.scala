@@ -21,6 +21,16 @@ trait Continuation[+AwaitResult, TailRecResult] extends Any {
 
 object Continuation {
 
+  type Task[+AwaitResult] = Continuation[AwaitResult, Unit]
+
+  implicit final class FunctionContinuation[+AwaitResult, TailRecResult](
+      val underlying: (Try[AwaitResult] => TailRec[TailRecResult]) => TailRec[TailRecResult])
+      extends AnyVal
+      with Continuation[AwaitResult, TailRecResult] {
+    override def onComplete(handler: (Try[AwaitResult]) => TailRec[TailRecResult]): TailRec[TailRecResult] =
+      underlying(handler)
+  }
+
   private[future] implicit class Scala210TailRec[A](underlying: TailRec[A]) {
     final def flatMap[B](f: A => TailRec[B]): TailRec[B] = {
       tailcall(f(underlying.result))
