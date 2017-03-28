@@ -10,8 +10,7 @@ import scalaz.MonadError
 /**
   * @author 杨博 (Yang Bo) &lt;pop.atry@gmail.com&gt;
   */
-trait ContinuationInstance[TailRecResult]
-    extends MonadError[({ type T[AwaitResult] = Continuation[AwaitResult, TailRecResult] })#T, Throwable] {
+trait ContinuationInstance[TailRecResult] extends MonadError[Continuation[?, TailRecResult], Throwable] {
 
   override final def raiseError[A](e: Throwable) = {
     new Return(Failure(e))
@@ -23,7 +22,6 @@ trait ContinuationInstance[TailRecResult]
   }
 
   override final def map[A, B](fa: Continuation[A, TailRecResult])(f: A => B) = {
-    import Continuation.{ContinuationOps => _, _}
     fa.map(f)
   }
 

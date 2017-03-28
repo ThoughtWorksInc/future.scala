@@ -16,9 +16,11 @@ lazy val Task = project.dependsOn(Continuation)
 
 lazy val `scalaz-ContinuationInstance` = project.dependsOn(Continuation)
 
+lazy val `scalaz-TaskInstance` = project.dependsOn(Task, Future)
+
 lazy val `scalatest-FutureFreeSpec` = project.dependsOn(Future, `concurrent-Converters`)
 
-lazy val `sde-continuation` = project.dependsOn(`scalaz-ContinuationInstance`)
+lazy val `sde-task` = project.dependsOn(`scalaz-TaskInstance`)
 
 lazy val `concurrent-Execution` = project.dependsOn(Task)
 

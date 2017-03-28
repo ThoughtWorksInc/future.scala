@@ -33,8 +33,8 @@ object Continuation {
     }
   }
 
-  def apply[A](a: => A) = {
-    new Return(Try(a))
+  def apply[AwaitResult, TailRecResult](a: => AwaitResult) = {
+    new Return[AwaitResult, TailRecResult](Try(a))
   }
 
   /**

@@ -7,6 +7,7 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.Exception.Catcher
 import scala.util.control.TailCalls.{TailRec, done, tailcall}
 import Continuation._
+import com.thoughtworks.future.Future.Promise.State
 
 /**
   * An stateful [[Continuation]] that represents an asynchronous operation already started.
@@ -136,12 +137,14 @@ object Future {
 
   object Promise {
 
-    final class AnyValPromise[AwaitResult] private[Future] (
-        val state: AtomicReference[Either[Queue[Try[AwaitResult] => TailRec[Unit]], Try[AwaitResult]]])
-        extends AnyVal
-        with Promise[AwaitResult]
+    type State[AwaitResult] = Either[Queue[Try[AwaitResult] => TailRec[Unit]], Try[AwaitResult]]
 
-    def apply[AwaitResult] = new AnyValPromise[AwaitResult](new AtomicReference(Left(Queue.empty)))
+    def apply[AwaitResult]: Promise[AwaitResult] = {
+      new AtomicReference[State[AwaitResult]](Left(Queue.empty)) with Promise[AwaitResult] {
+        override protected final def state: this.type = this
+      }
+    }
+
   }
 
   def apply[AwaitResult](task: Continuation[AwaitResult, Unit]): Future[AwaitResult] = {
@@ -149,4 +152,33 @@ object Future {
     promise.completeWith(task)
     promise
   }
+
+  // TODO: state
+  trait Zip[A, B] extends Future[(A, B)] {
+    protected def state: AtomicReference[Zip.State[A, B]]
+
+    override final def value: Option[Try[(A, B)]] = ???
+
+    override final def onComplete(handler: (Try[(A, B)]) => TailRec[Unit]): TailRec[Unit] = ???
+  }
+
+  object Zip {
+    private[Zip] sealed trait State[A, B]
+    private final case class GotNeither[A, B](handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+    private final case class GotA[A, B](a: A, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+    private final case class GotF[A, B](f: B, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+    private final case class GotBoth[A, B](a: A, b: B) extends State[A, B]
+
+    def apply[A, B](continuationA: Continuation[A, Unit], continuationB: Continuation[B, Unit]): Zip[A, B] = {
+      val zip = new AtomicReference[State[A, B]](GotNeither[A, B](Queue.empty)) with Zip[A, B] {
+        override protected final def state: this.type = this
+      }
+
+      ???
+
+      zip
+    }
+
+  }
+
 }
