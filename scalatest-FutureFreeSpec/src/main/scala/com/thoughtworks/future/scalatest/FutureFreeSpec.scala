@@ -9,7 +9,7 @@ import com.thoughtworks.future.concurrent.Converters._
 /**
   * @author 杨博 (Yang Bo) &lt;pop.atry@gmail.com&gt;
   */
-trait FutureFreeSpec extends AsyncFreeSpec {
+abstract class FutureFreeSpec extends AsyncFreeSpec {
 
   protected implicit final class StringInOps(message: String)(implicit pos: source.Position) {
 
