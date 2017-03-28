@@ -1,9 +1,10 @@
-package org.typelevel.future.sde
+package com.thoughtworks.future.sde
 
-import com.qifun.statelessFuture.Future
+import com.thoughtworks.future.Continuation
+import com.thoughtworks.future.Continuation.Task
+import com.thoughtworks.future.scalaz.TaskInstance
 import com.thoughtworks.sde.core.{MonadicFactory, Preprocessor}
 import macrocompat.bundle
-import org.typelevel.future.scalaz.FutureInstances
 
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 import scala.reflect.macros.whitebox
@@ -15,15 +16,15 @@ import scala.language.higherKinds
   * @author 杨博 (Yang Bo) &lt;pop.atry@gmail.com&gt;
   */
 @compileTimeOnly("enable macro paradise to expand macro annotations")
-final class future extends StaticAnnotation {
-  def macroTransform(annottees: Any*): Any = macro future.AnnotationBundle.macroTransform
+final class task extends StaticAnnotation {
+  def macroTransform(annottees: Any*): Any = macro task.AnnotationBundle.macroTransform
 }
 
-object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[F, Throwable] })#T, Future.Stateless] {
+object task extends MonadicFactory.WithTypeClass[MonadError[?[_], Throwable], Task] {
+
+  override val typeClass = TaskInstance.scalazTaskInstance
 
   type MonadThrowable[F[_]] = MonadError[F, Throwable]
-
-  override val typeClass: MonadThrowable[Future.Stateless] = new FutureInstances[Unit]
 
   @bundle
   private[future] final class AnnotationBundle(context: whitebox.Context) extends Preprocessor(context) {
@@ -34,11 +35,11 @@ object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[
       replaceDefBody(
         annottees, { body =>
           q"""
-          org.typelevel.future.sde.future {
-            import org.typelevel.future.sde.future.AutoImports._
-            ${(new ComprehensionTransformer).transform(body)}
+          {
+             import com.thoughtworks.future.sde.task.AwaitOps
+              _root_.com.thoughtworks.future.sde.task(${(new ComprehensionTransformer).transform(body)})
           }
-        """
+          """
         }
       )
     }
@@ -53,7 +54,7 @@ object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[
       val q"$methodName[$a]($future)" = c.macroApplication
       q"""
         _root_.com.thoughtworks.sde.core.MonadicFactory.Instructions.each[
-          _root_.com.qifun.statelessFuture.Future.Stateless,
+          _root_.com.thoughtworks.future.Continuation.Task,
           $a
         ]($future)
       """
@@ -65,7 +66,7 @@ object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[
       q"""
         val $opsName = $ops
         _root_.com.thoughtworks.sde.core.MonadicFactory.Instructions.each[
-          _root_.com.qifun.statelessFuture.Future.Stateless,
+          _root_.com.thoughtworks.future.Continuation.Task,
           $opsName.A
         ]($opsName.underlying)
       """
@@ -73,16 +74,9 @@ object future extends MonadicFactory.WithTypeClass[({ type T[F[_]] = MonadError[
 
   }
 
-  object AutoImports {
-
-    import scala.language.implicitConversions
-
-    implicit final class AwaitOps[A0](val underlying: Future.Stateless[A0]) extends AnyVal {
-      type A = A0
-      def ! : A = macro AwaitBundle.postfixAwait
-    }
-
-    implicit def await[A](future: Future.Stateless[A]): A = macro AwaitBundle.prefixAwait
-
+  implicit final class AwaitOps[A0](val underlying: Task[A0]) extends AnyVal {
+    type A = A0
+    def ! : A = macro AwaitBundle.postfixAwait
   }
+
 }

@@ -5,3 +5,5 @@ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.fu
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % Test
 
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value % Provided
+
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
