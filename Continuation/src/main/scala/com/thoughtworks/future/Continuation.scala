@@ -21,6 +21,12 @@ trait Continuation[+AwaitResult, TailRecResult] extends Any {
 
 object Continuation {
 
+  /**
+    * An stateless [[Continuation]] that starts a new asynchronous operation whenever [[onComplete]] being called.
+    *
+    * @template
+    * @note The result value of the operation will never store in this [[Task]].
+    */
   type Task[+AwaitResult] = Continuation[AwaitResult, Unit]
 
   implicit final class FunctionContinuation[+AwaitResult, TailRecResult](
