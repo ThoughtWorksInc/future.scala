@@ -13,7 +13,7 @@ import com.thoughtworks.future.Future.Zip.{GotA, GotBoth, GotF, GotNeither}
 /**
   * An stateful [[Continuation]] that represents an asynchronous operation already started.
   */
-trait Future[+AwaitResult] extends Any with Continuation[AwaitResult, Unit] {
+trait Future[+AwaitResult] extends Any with Task[AwaitResult] {
 
   /**
     * Tests if this [[Future]] is completed.
