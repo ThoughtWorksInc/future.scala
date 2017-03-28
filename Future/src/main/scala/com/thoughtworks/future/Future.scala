@@ -31,9 +31,6 @@ object Future {
 
   /**
     * A [[Future]] that will be completed when another [[Future]] or [[Continuation.Task]] being completed.
-    *
-    * @param state The internal state that should never be accessed by other modules.
-    *
     */
   trait Promise[AwaitResult] extends Any with Future[AwaitResult] {
 
@@ -74,7 +71,6 @@ object Future {
     /**
       * Starts a waiting operation that will be completed when `other` being completed.
       *
-      * @throws java.lang.IllegalStateException Passed to `catcher` when this [[Promise]] being completed more once.
       * @usecase def completeWith(other: Future[AwaitResult]): Unit = ???
       */
     final def completeWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
