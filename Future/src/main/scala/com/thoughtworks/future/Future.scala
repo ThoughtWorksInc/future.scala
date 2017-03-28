@@ -30,10 +30,12 @@ object Future {
 
   /**
     * A [[Future]] that will be completed when another [[Future]] or [[Task]] being completed.
-    * @param state The internal state that should never be accessed by other modules.
     */
   trait Promise[AwaitResult] extends Any with Future[AwaitResult] {
 
+    /**
+      * Returns the internal state that should never be accessed by other modules.
+      */
     protected def state: AtomicReference[Either[Queue[Try[AwaitResult] => TailRec[Unit]], Try[AwaitResult]]]
 
     private def dispatch(handlers: Queue[Try[AwaitResult] => TailRec[Unit]], value: Try[AwaitResult]): TailRec[Unit] = {
