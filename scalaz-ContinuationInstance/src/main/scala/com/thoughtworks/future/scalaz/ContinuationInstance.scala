@@ -36,6 +36,6 @@ trait ContinuationInstance[TailRecResult] extends MonadError[Continuation[?, Tai
 
 object ContinuationInstance {
 
-  implicit def getInstance[TailRecResult]: ContinuationInstance[TailRecResult] = new ContinuationInstance[TailRecResult] {}
+  implicit def scalazContinuationInstance[TailRecResult]: ContinuationInstance[TailRecResult] = new ContinuationInstance[TailRecResult] {}
 
 }

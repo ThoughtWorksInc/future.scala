@@ -26,6 +26,6 @@ trait TaskInstance extends ContinuationInstance[Unit] with MonadError[Task, Thro
 
 object TaskInstance {
 
-  implicit def getInstance: TaskInstance = new TaskInstance {}
+  implicit def scalazTaskInstance: TaskInstance = new TaskInstance {}
 
 }
