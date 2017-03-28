@@ -11,7 +11,7 @@ import com.thoughtworks.future.concurrent.Converters._
   */
 abstract class FutureFreeSpec extends AsyncFreeSpec {
 
-  protected implicit final class StringInOps(message: String)(implicit pos: source.Position) {
+  protected implicit final class FutureFreeSpecStringWrapper(message: String)(implicit pos: source.Position) {
 
     def in(future: Future[compatible.Assertion]): Unit = {
       convertToFreeSpecStringWrapper(message).in(future: scala.concurrent.Future[compatible.Assertion])
