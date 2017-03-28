@@ -8,6 +8,7 @@ import scala.util.control.Exception.Catcher
 import scala.util.control.TailCalls.{TailRec, done, tailcall}
 import Continuation._
 import com.thoughtworks.future.Future.Promise.State
+import com.thoughtworks.future.Future.Zip.{GotA, GotBoth, GotF, GotNeither}
 
 /**
   * An stateful [[Continuation]] that represents an asynchronous operation already started.
@@ -30,6 +31,7 @@ object Future {
 
   /**
     * A [[Future]] that will be completed when another [[Future]] or [[Task]] being completed.
+    *
     * @param state The internal state that should never be accessed by other modules.
     */
   trait Promise[AwaitResult] extends Any with Future[AwaitResult] {
@@ -52,7 +54,7 @@ object Future {
     // @tailrec // Comment this because of https://issues.scala-lang.org/browse/SI-6574
     final def complete(value: Try[AwaitResult]): TailRec[Unit] = {
       state.get match {
-        case oldState @ Left(handlers) => {
+        case oldState@Left(handlers) => {
           if (state.compareAndSet(oldState, Right(value))) {
             tailcall(dispatch(handlers, value))
           } else {
@@ -67,17 +69,19 @@ object Future {
 
     /**
       * Starts a waiting operation that will be completed when `other` being completed.
+      *
       * @throws java.lang.IllegalStateException Passed to `catcher` when this [[Promise]] being completed more once.
       * @usecase def completeWith(other: Future[AwaitResult]): Unit = ???
       */
     final def completeWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
-        implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
+      implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
       implicit def catcher: Catcher[TailRec[Unit]] = {
         case e: Throwable => {
           val value = Failure(e)
           tailcall(complete(value))
         }
       }
+
       (other onComplete { b =>
         tailcall(complete(b))
       }).result
@@ -86,7 +90,7 @@ object Future {
     // @tailrec // Comment this annotation because of https://issues.scala-lang.org/browse/SI-6574
     final def tryComplete(value: Try[AwaitResult]): TailRec[Unit] = {
       state.get match {
-        case oldState @ Left(handlers) => {
+        case oldState@Left(handlers) => {
           if (state.compareAndSet(oldState, Right(value))) {
             tailcall(dispatch(handlers, value))
           } else {
@@ -102,16 +106,18 @@ object Future {
     /**
       * Starts a waiting operation that will be completed when `other` being completed.
       * Unlike [[completeWith]], no exception will be created when this [[Promise]] being completed more once.
+      *
       * @usecase def tryCompleteWith(other: Future[AwaitResult]): Unit = ???
       */
     final def tryCompleteWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
-        implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
+      implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
       implicit def catcher: Catcher[TailRec[Unit]] = {
         case e: Throwable => {
           val value = Failure(e)
           tailcall(tryComplete(value))
         }
       }
+
       (other.onComplete { b =>
         tailcall(tryComplete(b))
       }).result
@@ -123,7 +129,7 @@ object Future {
         case Right(value) => {
           handler(value)
         }
-        case oldState @ Left(tail) => {
+        case oldState@Left(tail) => {
           if (state.compareAndSet(oldState, Left(tail.enqueue(handler)))) {
             done(())
           } else {
@@ -157,16 +163,48 @@ object Future {
   trait Zip[A, B] extends Future[(A, B)] {
     protected def state: AtomicReference[Zip.State[A, B]]
 
-    override final def value: Option[Try[(A, B)]] = ???
+    override final def value: Option[Try[(A, B)]] = state.get() match {
+      case (a: A, b: B) => Option(Try(a, b))
+    }
 
-    override final def onComplete(handler: (Try[(A, B)]) => TailRec[Unit]): TailRec[Unit] = ???
+    override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = {
+      state.get match {
+        case GotBoth(_, _) => handler(value)
+        case oldState@GotNeither(tail) => {
+          if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
+            done(())
+          } else {
+            onComplete(handler)
+          }
+        }
+        case oldState@GotA(a, tail) => {
+          if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
+            done(())
+          } else {
+            onComplete(handler)
+          }
+        }
+        case oldState@GotF(b, tail) => {
+          if (state.compareAndSet(oldState, GotF(b, tail.enqueue(handler)))) {
+            done(())
+          } else {
+            onComplete(handler)
+          }
+        }
+      }
+    }
   }
 
   object Zip {
+
     private[Zip] sealed trait State[A, B]
+
     private final case class GotNeither[A, B](handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+
     private final case class GotA[A, B](a: A, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
-    private final case class GotF[A, B](f: B, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+
+    private final case class GotF[A, B](b: B, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+
     private final case class GotBoth[A, B](a: A, b: B) extends State[A, B]
 
     def apply[A, B](continuationA: Continuation[A, Unit], continuationB: Continuation[B, Unit]): Zip[A, B] = {
