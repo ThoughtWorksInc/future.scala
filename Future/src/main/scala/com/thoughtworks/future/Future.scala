@@ -73,7 +73,7 @@ object Future {
       *
       * @usecase def completeWith(other: Future[AwaitResult]): Unit = ???
       */
-    final def completeWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
+    final def completeWith[OriginalAwaitResult](other: Task[OriginalAwaitResult])(
         implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
       implicit def catcher: Catcher[TailRec[Unit]] = {
         case e: Throwable => {
@@ -153,7 +153,23 @@ object Future {
 
   }
 
-  def apply[AwaitResult](task: Continuation[AwaitResult, Unit]): Future[AwaitResult] = {
+  class Constant[+AwaitResult](a: Try[AwaitResult]) extends Future[AwaitResult] {
+
+    override final def onComplete(handler: Try[AwaitResult] => TailRec[Unit]): TailRec[Unit] = {
+      handler(a)
+    }
+
+    override final def isCompleted: Boolean = true
+
+    override final def value: Option[Try[AwaitResult]] = Some(a)
+
+  }
+
+  def apply[AwaitResult](a: => AwaitResult): Future[AwaitResult] = {
+    new Constant(Try(a))
+  }
+
+  def completeWith[AwaitResult](task: Continuation[AwaitResult, Unit]): Future[AwaitResult] = {
     val promise = Promise[AwaitResult]
     promise.completeWith(task)
     promise
