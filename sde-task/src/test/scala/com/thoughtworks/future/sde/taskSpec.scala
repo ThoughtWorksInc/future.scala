@@ -10,15 +10,15 @@ import com.thoughtworks.future.concurrent.Converters._
   * @author 杨博 (Yang Bo) &lt;pop.atry@gmail.com&gt;
   */
 final class taskSpec extends AsyncFreeSpec with Matchers {
-  "try / finally in a sde block should compile" in {
+  "try / finally in a sde block should compile" in Future.completeWith {
     val f: Task[Int] = task(42)
-    Future(task {
+    task {
       try {
         f.! should be(42)
       } finally {
         f.!
       }
-    })
+    }
   }
 
   "task block should create a Task" in {
