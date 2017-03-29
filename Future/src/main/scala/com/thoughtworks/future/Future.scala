@@ -8,7 +8,10 @@ import scala.util.control.Exception.Catcher
 import scala.util.control.TailCalls.{TailRec, done, tailcall}
 import Continuation._
 import com.thoughtworks.future.Future.Promise.State
-import com.thoughtworks.future.Future.Zip.{GotA, GotBoth, GotF, GotNeither}
+import com.thoughtworks.future.Future.Zip.{apply => _, _}
+
+import scala.Option
+import scala.annotation.tailrec
 
 /**
   * An stateful [[Continuation]] that represents an asynchronous operation already started.
@@ -29,6 +32,18 @@ trait Future[+AwaitResult] extends Any with Task[AwaitResult] {
 
 object Future {
 
+  private def dispatch[AwaitResult](handlers: Queue[Try[AwaitResult] => TailRec[Unit]],
+                                    value: Try[AwaitResult]): TailRec[Unit] = {
+    if (handlers.isEmpty) {
+      done(())
+    } else {
+      val (handler, tail) = handlers.dequeue
+      handler(value).flatMap { _ =>
+        dispatch(tail, value)
+      }
+    }
+  }
+
   /**
     * A [[Future]] that will be completed when another [[Future]] or [[Continuation.Task]] being completed.
     */
@@ -37,22 +52,11 @@ object Future {
     /**
       * Returns the internal state that should never be accessed by other modules.
       */
-    protected def state: AtomicReference[Either[Queue[Try[AwaitResult] => TailRec[Unit]], Try[AwaitResult]]]
-
-    private def dispatch(handlers: Queue[Try[AwaitResult] => TailRec[Unit]], value: Try[AwaitResult]): TailRec[Unit] = {
-      if (handlers.isEmpty) {
-        done(())
-      } else {
-        val (handler, tail) = handlers.dequeue
-        handler(value).flatMap { _ =>
-          dispatch(tail, value)
-        }
-      }
-    }
+    protected[future] def state: AtomicReference[Either[Queue[Try[AwaitResult] => TailRec[Unit]], Try[AwaitResult]]]
 
     override final def value = state.get.right.toOption
 
-    // @tailrec // Comment this because of https://issues.scala-lang.org/browse/SI-6574
+    @tailrec
     final def complete(value: Try[AwaitResult]): TailRec[Unit] = {
       state.get match {
         case oldState @ Left(handlers) => {
@@ -87,7 +91,7 @@ object Future {
       }).result
     }
 
-    // @tailrec // Comment this annotation because of https://issues.scala-lang.org/browse/SI-6574
+    @tailrec
     final def tryComplete(value: Try[AwaitResult]): TailRec[Unit] = {
       state.get match {
         case oldState @ Left(handlers) => {
@@ -118,12 +122,12 @@ object Future {
         }
       }
 
-      (other.onComplete { b =>
+      other.onComplete { b =>
         tailcall(tryComplete(b))
-      }).result
+      }.result
     }
 
-    // @tailrec // Comment this annotation because of https://issues.scala-lang.org/browse/SI-6574
+    @tailrec
     override final def onComplete(handler: Try[AwaitResult] => TailRec[Unit]): TailRec[Unit] = {
       state.get match {
         case Right(value) => {
@@ -147,7 +151,7 @@ object Future {
 
     def apply[AwaitResult]: Promise[AwaitResult] = {
       new AtomicReference[State[AwaitResult]](Left(Queue.empty)) with Promise[AwaitResult] {
-        override protected final def state: this.type = this
+        override protected[future] final def state: this.type = this
       }
     }
 
@@ -175,64 +179,123 @@ object Future {
     promise
   }
 
-  // TODO: state
   trait Zip[A, B] extends Future[(A, B)] {
-    protected def state: AtomicReference[Zip.State[A, B]]
+    protected[future] def state: AtomicReference[Zip.State[A, B]]
 
-    override final def value: Option[Try[(A, B)]] = ???
+    override final def value: Option[Try[(A, B)]] =
+      state.get() match {
+        case GotBoth(result) => Option(result)
+      }
 
-    //      state.get() match {
-    //      case (a: A, b: B) => Option(Try(a, b))
-    //    }
+    @tailrec
+    override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = {
+      state.get match {
+        case GotBoth(both) => handler(both)
+        case oldState @ GotNeither(tail) => {
+          if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
+            done(())
+          } else {
+            onComplete(handler)
+          }
+        }
+        case oldState @ GotA(a, tail) => {
+          if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
+            done(())
+          } else {
+            onComplete(handler)
+          }
+        }
+        case oldState @ GotB(b, tail) => {
+          if (state.compareAndSet(oldState, GotB(b, tail.enqueue(handler)))) {
+            done(())
+          } else {
+            onComplete(handler)
+          }
+        }
+      }
+    }
 
-    override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = ???
+    @tailrec
+    private def tryCompleteA(value: Try[A]): TailRec[Unit] = {
+      state.get match {
+        case oldState @ GotNeither(handlers) => {
+          if (state.compareAndSet(oldState, GotA(value, handlers))) {
+            done(())
+          } else {
+            tryCompleteA(value)
+          }
+        }
+        case GotA(_, _) =>
+          throw new IllegalStateException("Cannot complete a Future twice!")
+        case oldState @ GotB(b, handlers) => {
+          if (state.compareAndSet(oldState, GotBoth(Try(value.get, b.get)))) {
+            tailcall(dispatch(handlers, Try(value.get, b.get)))
+          } else {
+            tryCompleteA(value)
+          }
+        }
+        case GotBoth(_) =>
+          throw new IllegalStateException("Cannot complete a Future twice!")
+      }
+    }
 
-    //    {
-    //      state.get match {
-    //        case GotBoth(_, _) => handler(value)
-    //        case oldState@GotNeither(tail) => {
-    //          if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
-    //            done(())
-    //          } else {
-    //            onComplete(handler)
-    //          }
-    //        }
-    //        case oldState@GotA(a, tail) => {
-    //          if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
-    //            done(())
-    //          } else {
-    //            onComplete(handler)
-    //          }
-    //        }
-    //        case oldState@GotF(b, tail) => {
-    //          if (state.compareAndSet(oldState, GotF(b, tail.enqueue(handler)))) {
-    //            done(())
-    //          } else {
-    //            onComplete(handler)
-    //          }
-    //        }
-    //      }
-    //    }
+    @tailrec
+    private def tryCompleteB(value: Try[B]): TailRec[Unit] = {
+      state.get match {
+        case oldState @ GotNeither(handlers) => {
+          if (state.compareAndSet(oldState, GotB(value, handlers))) {
+            done(())
+          } else {
+            tryCompleteB(value)
+          }
+        }
+        case GotB(_, _) =>
+          throw new IllegalStateException("Cannot complete a Future twice!")
+        case oldState @ GotA(a, handlers) => {
+          if (state.compareAndSet(oldState, GotBoth(Try(a.get, value.get)))) {
+            tailcall(dispatch(handlers, Try(a.get, value.get)))
+          } else {
+            tryCompleteB(value)
+          }
+        }
+        case GotBoth(_) =>
+          throw new IllegalStateException("Cannot complete a Future twice!")
+      }
+    }
+
   }
 
   object Zip {
 
-    private[Zip] sealed trait State[A, B]
+    private[future] sealed trait State[A, B]
 
-    private final case class GotNeither[A, B](handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+    private[future] final case class GotNeither[A, B](handlers: Queue[Try[(A, B)] => TailRec[Unit]])
+        extends State[A, B]
 
-    private final case class GotA[A, B](a: A, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+    private[future] final case class GotA[A, B](a: Try[A], handlers: Queue[Try[(A, B)] => TailRec[Unit]])
+        extends State[A, B]
 
-    private final case class GotF[A, B](b: B, handlers: Queue[Try[(A, B)] => TailRec[Unit]]) extends State[A, B]
+    private[future] final case class GotB[A, B](b: Try[B], handlers: Queue[Try[(A, B)] => TailRec[Unit]])
+        extends State[A, B]
 
-    private final case class GotBoth[A, B](a: A, b: B) extends State[A, B]
+    private[future] final case class GotBoth[A, B](pair: Try[(A, B)]) extends State[A, B]
 
     def apply[A, B](continuationA: Task[A], continuationB: Task[B]): Zip[A, B] = {
       val zip = new AtomicReference[State[A, B]](GotNeither[A, B](Queue.empty)) with Zip[A, B] {
-        override protected final def state: this.type = this
+        override protected[future] final def state: this.type = this
       }
 
-      ???
+      continuationA.onComplete { a =>
+        tailcall(
+          zip.tryCompleteA(a)
+        )
+      }.result
+
+      continuationB.onComplete { b =>
+        tailcall(
+          zip.tryCompleteB(b)
+        )
+      }.result
 
       zip
     }
