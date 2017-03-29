@@ -31,6 +31,10 @@ object Continuation {
     */
   type Task[+AwaitResult] = Continuation[AwaitResult, Unit]
 
+  object Task {
+    def apply[AwaitResult](a: => AwaitResult): Task[AwaitResult] = new Return(Try(a))
+  }
+
   implicit final class FunctionContinuation[+AwaitResult, TailRecResult](
       val underlying: (Try[AwaitResult] => TailRec[TailRecResult]) => TailRec[TailRecResult])
       extends AnyVal
