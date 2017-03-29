@@ -4,7 +4,7 @@ lazy val Future = project.dependsOn(Continuation)
 
 lazy val `scalaz-ContinuationInstance` = project.dependsOn(Continuation)
 
-lazy val `scalaz-TaskInstance` = project.dependsOn(Future, `scalaz-ContinuationInstance`)
+lazy val `scalaz-TaskInstance` = project.dependsOn(Future, `scalaz-ContinuationInstance`, `concurrent-Converters`)
 
 lazy val `sde-task` = project.dependsOn(`scalaz-TaskInstance`, `concurrent-Converters` % Test)
 
