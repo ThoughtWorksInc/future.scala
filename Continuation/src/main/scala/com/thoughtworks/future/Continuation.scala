@@ -55,7 +55,7 @@ object Continuation {
     }
   }
 
-  def apply[AwaitResult, TailRecResult](a: => AwaitResult) = {
+  def apply[AwaitResult, TailRecResult](a: => AwaitResult): Continuation[AwaitResult, TailRecResult] = {
     new Return[AwaitResult, TailRecResult](Try(a))
   }
 
