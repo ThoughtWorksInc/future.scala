@@ -50,7 +50,7 @@ object Continuation {
   }
 
   class Return[+AwaitResult, TailRecResult](a: => Try[AwaitResult]) extends Continuation[AwaitResult, TailRecResult] {
-    override def onComplete(handler: Try[AwaitResult] => TailRec[TailRecResult]): TailRec[TailRecResult] = {
+    override final def onComplete(handler: Try[AwaitResult] => TailRec[TailRecResult]): TailRec[TailRecResult] = {
       handler(a)
     }
   }
