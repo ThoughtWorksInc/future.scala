@@ -9,7 +9,7 @@ import scalaz.MonadError
 /**
   * @author 杨博 (Yang Bo) &lt;pop.atry@gmail.com&gt;
   */
-trait TaskInstance extends MonadError[Task, Throwable] with ContinuationInstance[Unit] {
+trait TaskInstance extends MonadError[Task, Throwable] with ContinuationInstance[Unit] with scalaz.Zip[Task] {
 
   override final def ap[A, B](fa: => Task[A])(f: => Task[A => B]) = {
     Zip(fa, f).map { pair: (A, A => B) =>
@@ -21,6 +21,10 @@ trait TaskInstance extends MonadError[Task, Throwable] with ContinuationInstance
     Zip(fa, fb).map { pair =>
       f(pair._1, pair._2)
     }
+  }
+
+  override final def zip[A, B](a: => Task[A], b: => Task[B]): Task[(A, B)] = {
+    Zip(a, b)
   }
 }
 
