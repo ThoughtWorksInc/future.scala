@@ -37,8 +37,8 @@ object Future {
     if (handlers.isEmpty) {
       done(())
     } else {
-      val (handler, tail) = handlers.dequeue
-      handler(value).flatMap { _ =>
+      val (head, tail) = handlers.dequeue
+      head(value).flatMap { _ =>
         dispatch(tail, value)
       }
     }
@@ -115,13 +115,6 @@ object Future {
       */
     final def tryCompleteWith[OriginalAwaitResult](other: Continuation[OriginalAwaitResult, Unit])(
         implicit view: Try[OriginalAwaitResult] <:< Try[AwaitResult]): Unit = {
-      implicit def catcher: Catcher[TailRec[Unit]] = {
-        case e: Throwable => {
-          val value = Failure(e)
-          tailcall(tryComplete(value))
-        }
-      }
-
       other.onComplete { b =>
         tailcall(tryComplete(b))
       }.result
@@ -133,8 +126,8 @@ object Future {
         case Right(value) => {
           handler(value)
         }
-        case oldState @ Left(tail) => {
-          if (state.compareAndSet(oldState, Left(tail.enqueue(handler)))) {
+        case oldState @ Left(handlers) => {
+          if (state.compareAndSet(oldState, Left(handlers.enqueue(handler)))) {
             done(())
           } else {
             onComplete(handler)
@@ -191,22 +184,22 @@ object Future {
     override final def onComplete(handler: Try[(A, B)] => TailRec[Unit]): TailRec[Unit] = {
       state.get match {
         case GotBoth(both) => handler(both)
-        case oldState @ GotNeither(tail) => {
-          if (state.compareAndSet(oldState, GotNeither(tail.enqueue(handler)))) {
+        case oldState @ GotNeither(handlers) => {
+          if (state.compareAndSet(oldState, GotNeither(handlers.enqueue(handler)))) {
             done(())
           } else {
             onComplete(handler)
           }
         }
-        case oldState @ GotA(a, tail) => {
-          if (state.compareAndSet(oldState, GotA(a, tail.enqueue(handler)))) {
+        case oldState @ GotA(a, handlers) => {
+          if (state.compareAndSet(oldState, GotA(a, handlers.enqueue(handler)))) {
             done(())
           } else {
             onComplete(handler)
           }
         }
-        case oldState @ GotB(b, tail) => {
-          if (state.compareAndSet(oldState, GotB(b, tail.enqueue(handler)))) {
+        case oldState @ GotB(b, handlers) => {
+          if (state.compareAndSet(oldState, GotB(b, handlers.enqueue(handler)))) {
             done(())
           } else {
             onComplete(handler)
@@ -280,18 +273,18 @@ object Future {
 
     private[future] final case class GotBoth[A, B](pair: Try[(A, B)]) extends State[A, B]
 
-    def apply[A, B](continuationA: Task[A], continuationB: Task[B]): Zip[A, B] = {
+    def apply[A, B](taskA: Task[A], taskB: Task[B]): Zip[A, B] = {
       val zip = new AtomicReference[State[A, B]](GotNeither[A, B](Queue.empty)) with Zip[A, B] {
         override protected[future] final def state: this.type = this
       }
 
-      continuationA.onComplete { a =>
+      taskA.onComplete { a =>
         tailcall(
           zip.tryCompleteA(a)
         )
       }.result
 
-      continuationB.onComplete { b =>
+      taskB.onComplete { b =>
         tailcall(
           zip.tryCompleteB(b)
         )
