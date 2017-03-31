@@ -16,3 +16,9 @@ lazy val unidoc = project
   .enablePlugins(TravisUnidocTitle)
   .settings(addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"),
             addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full))
+
+organization in ThisBuild := "com.thoughtworks.future"
+
+crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1")
+
+publishArtifact := false
