@@ -1,5 +1,3 @@
-import scala.util.matching.Regex.{Groups, Match}
-
 crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.2")
 
 lazy val continuation = crossProject.crossType(CrossType.Pure)
