@@ -19,7 +19,8 @@ package com.thoughtworks
 import com.thoughtworks.future.continuation.Continuation
 import com.thoughtworks.tryt.covariant.TryT
 
-import scalaz.{@@, Applicative, BindRec, ContT, MonadError, Semigroup}
+import scala.concurrent.ExecutionContext
+import scalaz.{@@, Applicative, BindRec, ContT, MonadError, Semigroup, Trampoline}
 import scalaz.Free.Trampoline
 import scala.language.higherKinds
 import scala.util.{Success, Try}
@@ -56,6 +57,19 @@ package object future {
   }
 
   object Future {
+
+    def jump()(implicit executionContext: ExecutionContext): Future[Unit] = {
+      Future.shift { handler: (Try[Unit] => Trampoline[Unit]) =>
+        Trampoline.delay {
+          executionContext.execute {
+            new Runnable {
+              override def run(): Unit = handler(Success(())).run
+            }
+          }
+        }
+      }
+    }
+
     def now[A](a: A): Future[A] = {
       Future(TryT(Continuation.delay(Success(a))))
     }
@@ -81,8 +95,8 @@ package object future {
       Some(opacityTypes.toTryT(future))
     }
 
-    def async[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
-      opacityTypes.fromTryT(TryT(Continuation.async(run)))
+    def shift[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
+      opacityTypes.fromTryT(TryT(Continuation.shift(run)))
     }
 
     def run[A](future: Future[A])(handler: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {

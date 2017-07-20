@@ -192,7 +192,7 @@ object continuation {
     def fromContT[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = contT
   }
 
-  /** An asynchronous task like `scalaz.concurrent.Future` except this [[Continuation]] are stack-safe and covariant
+  /** An asynchronous task like `com.thoughtworks.future.continuation.Continuation` except this [[Continuation]] are stack-safe and covariant
     *
     * @template
     */
@@ -201,14 +201,14 @@ object continuation {
   type ParallelContinuation[A] = Continuation[A] @@ Parallel
 
   object Continuation {
-    def now[A](a: A): Continuation[A] = Continuation.async(_(a))
-    def delay[A](a: => A): Continuation[A] = Continuation.async(_(a))
+    def now[A](a: A): Continuation[A] = Continuation.shift(_(a))
+    def delay[A](a: => A): Continuation[A] = Continuation.shift(_(a))
 
     def run[A](continuation: Continuation[A])(handler: A => Trampoline[Unit]): Trampoline[Unit] = {
       opacityTypes.toContT(continuation).run(handler)
     }
 
-    def async[A](run: (A => Trampoline[Unit]) => Trampoline[Unit]): Continuation[A] = {
+    def shift[A](run: (A => Trampoline[Unit]) => Trampoline[Unit]): Continuation[A] = {
       opacityTypes.fromContT[A](ContT(run))
     }
 
