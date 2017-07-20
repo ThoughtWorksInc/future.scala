@@ -24,6 +24,7 @@ import scalaz.{-\/, @@, Applicative, BindRec, ContT, Monad, Trampoline, Zip, \/,
 import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
 import scala.language.higherKinds
+import scala.language.existentials
 
 /**
   * @author 杨博 (Yang Bo)
@@ -95,10 +96,9 @@ object continuation {
         ContT { (continue: B => Trampoline[Unit]) =>
           Trampoline.suspend {
             fa.run { a: A =>
-              continue(f(a))
+              Trampoline.suspend(continue(f(a)))
             }
           }
-
         }
       }
 
