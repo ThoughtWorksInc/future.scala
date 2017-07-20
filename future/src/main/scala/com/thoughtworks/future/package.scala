@@ -22,7 +22,7 @@ import com.thoughtworks.tryt.covariant.TryT
 import scalaz.{@@, Applicative, BindRec, ContT, MonadError, Semigroup}
 import scalaz.Free.Trampoline
 import scala.language.higherKinds
-import scala.util.Try
+import scala.util.{Success, Try}
 import scalaz.Tags.Parallel
 
 /**
@@ -56,6 +56,13 @@ package object future {
   }
 
   object Future {
+    def now[A](a: A): Future[A] = {
+      Future(TryT(Continuation.delay(Success(a))))
+    }
+
+    def delay[A](a: => A): Future[A] = {
+      Future(TryT(Continuation.delay(Try(a))))
+    }
 
     implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
       opacityTypes.futureMonadError
@@ -66,8 +73,16 @@ package object future {
       opacityTypes.futureParallelApplicative
     }
 
-    def apply[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
-      opacityTypes.fromTryT(TryT(Continuation(run)))
+    def apply[A](tryT: TryT[Continuation, A]): Future[A] = {
+      opacityTypes.fromTryT(tryT)
+    }
+
+    def unapply[A](future: Future[A]): Some[TryT[Continuation, A]] = {
+      Some(opacityTypes.toTryT(future))
+    }
+
+    def async[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
+      opacityTypes.fromTryT(TryT(Continuation.async(run)))
     }
 
     def run[A](future: Future[A])(handler: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {

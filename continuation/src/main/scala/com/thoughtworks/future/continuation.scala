@@ -201,13 +201,23 @@ object continuation {
   type ParallelContinuation[A] = Continuation[A] @@ Parallel
 
   object Continuation {
+    def now[A](a: A): Continuation[A] = Continuation.async(_(a))
+    def delay[A](a: => A): Continuation[A] = Continuation.async(_(a))
 
     def run[A](continuation: Continuation[A])(handler: A => Trampoline[Unit]): Trampoline[Unit] = {
       opacityTypes.toContT(continuation).run(handler)
     }
 
-    def apply[A](run: (A => Trampoline[Unit]) => Trampoline[Unit]): Continuation[A] = {
+    def async[A](run: (A => Trampoline[Unit]) => Trampoline[Unit]): Continuation[A] = {
       opacityTypes.fromContT[A](ContT(run))
+    }
+
+    def apply[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = {
+      opacityTypes.fromContT(contT)
+    }
+
+    def unapply[A](future: Continuation[A]) = {
+      Some(opacityTypes.toContT(future))
     }
 
     implicit def continuationMonad: Monad[Continuation] with BindRec[Continuation] with Zip[Continuation] = {
