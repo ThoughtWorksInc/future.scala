@@ -1,3 +1,7 @@
+organization := "com.thoughtworks.continuation"
+
+organization in generateExample := "com.thoughtworks"
+
 libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
 
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
@@ -11,6 +15,6 @@ exampleSuperTypes ~= { oldExampleSuperTypes =>
 
 exampleSuperTypes += "_root_.org.scalatest.Inside"
 
-exampleSuperTypes += "_root_.com.thoughtworks.future.scalatest.ContinuationToScalaFuture"
+exampleSuperTypes += "_root_.com.thoughtworks.continuation_test.ContinuationToScalaFuture"
 
 scalacOptions += "-Ypartial-unification"

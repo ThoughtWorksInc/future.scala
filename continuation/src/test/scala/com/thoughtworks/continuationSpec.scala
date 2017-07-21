@@ -1,6 +1,6 @@
-package com.thoughtworks.future
+package com.thoughtworks
 
-import com.thoughtworks.future.scalatest.ContinuationToScalaFuture
+import com.thoughtworks.continuation_test.ContinuationToScalaFuture
 import org.scalatest.{AsyncFreeSpec, Inside, Matchers}
 
 /**
@@ -9,12 +9,11 @@ import org.scalatest.{AsyncFreeSpec, Inside, Matchers}
 class continuationSpec extends AsyncFreeSpec with Matchers with Inside with ContinuationToScalaFuture {
   "test in paralle" in {
 
-    import com.thoughtworks.future.continuation._
+    import com.thoughtworks.continuation._
     import scalaz.Tags.Parallel
     import scalaz.syntax.all._
     import scalaz.Trampoline
     import scalaz.Free.Trampoline
-    import com.thoughtworks.future.continuation.Continuation._
 
     var resultCount = 0
     var handler0: Option[Unit => Trampoline[Unit]] = None

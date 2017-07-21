@@ -16,12 +16,11 @@
 
 package com.thoughtworks
 
-import com.thoughtworks.future.continuation.{Continuation, UnitContinuation}
+import com.thoughtworks.continuation._
 import com.thoughtworks.tryt.covariant.TryT
 
 import scala.concurrent.ExecutionContext
-import scalaz.{@@, Applicative, BindRec, ContT, MonadError, Semigroup, Trampoline}
-import scalaz.Free.Trampoline
+import scalaz.{@@, Applicative, BindRec, MonadError, Semigroup}
 import scala.language.higherKinds
 import scala.util.{Success, Try}
 import scalaz.Tags.Parallel
@@ -29,7 +28,7 @@ import scalaz.Tags.Parallel
 /**
   * @author 杨博 (Yang Bo)
   */
-package object future {
+object future {
 
   private[future] trait OpacityTypes {
     type Future[+A]
@@ -50,15 +49,46 @@ package object future {
     override def toTryT[A](future: Future[A]): TryT[UnitContinuation, A] = future
 
     def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
-      TryT.tryTBindRec[UnitContinuation](Continuation.continuationMonad, Continuation.continuationMonad)
+      TryT.tryTBindRec[UnitContinuation](continuationMonad, continuationMonad)
     }
 
     def futureParallelApplicative(implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
-      TryT.tryTParallelApplicative[UnitContinuation](Continuation.continuationParallelApplicative, throwableSemigroup)
+      TryT.tryTParallelApplicative[UnitContinuation](continuationParallelApplicative, throwableSemigroup)
+    }
+  }
+
+  @inline
+  implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
+    opacityTypes.futureMonadError
+  }
+
+  @inline
+  implicit def futureParallelApplicative(
+      implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
+    opacityTypes.futureParallelApplicative
+  }
+
+  implicit final class FutureOps[A](future: Future[A]) {
+    @inline
+    def toScalaFuture: scala.concurrent.Future[A] = {
+      val promise = scala.concurrent.Promise[A]
+      onComplete(promise.complete(_))
+      promise.future
+    }
+
+    @inline
+    def onComplete(handler: Try[A] => Unit): Unit = {
+      val Future(TryT(continuation)) = future
+      continuation.onComplete(handler)
     }
   }
 
   object Future {
+
+    def fromScalaFuture[A](scalaFuture: scala.concurrent.Future[A])(
+        implicit executionContext: ExecutionContext): Future[A] = {
+      Future.async(scalaFuture.onComplete(_))
+    }
 
     def async[A](run: (Try[A] => Unit) => Unit): Future[A] = {
       fromContinuation(Continuation.async(run))
@@ -78,17 +108,6 @@ package object future {
     }
 
     @inline
-    implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
-      opacityTypes.futureMonadError
-    }
-
-    @inline
-    implicit def futureParallelApplicative(
-        implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
-      opacityTypes.futureParallelApplicative
-    }
-
-    @inline
     def apply[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
       opacityTypes.fromTryT(tryT)
     }
@@ -97,26 +116,11 @@ package object future {
     def unapply[A](future: Future[A]): Some[TryT[UnitContinuation, A]] = {
       Some(opacityTypes.toTryT(future))
     }
-
-    @inline
-    private def toContinuation[A](future: Future[A]): Continuation[Unit, Try[A]] = {
-      TryT.unapply[UnitContinuation, A](opacityTypes.toTryT(future)).get
-    }
-
     @inline
     private def fromContinuation[A](continuation: Continuation[Unit, Try[A]]): Future[A] = {
       apply(TryT[UnitContinuation, A](continuation))
     }
 
-    @inline
-    private def fromFunction[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
-      fromContinuation(Continuation.fromFunction(run))
-    }
-
-    @inline
-    def onComplete[A](future: Future[A])(handler: Try[A] => Unit): Unit = {
-      Continuation.onComplete(toContinuation(future))(handler)
-    }
   }
 
   /** @template */

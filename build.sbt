@@ -22,6 +22,4 @@ lazy val unidoc = project
     scalacOptions += "-Xexperimental"
   )
 
-organization in ThisBuild := "com.thoughtworks.future"
-
 publishArtifact := false
