@@ -201,12 +201,12 @@ object continuation {
     }
 
     @inline
-    def fromContTTrampoline[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
+    def fromContT[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
       opacityTypes.fromContT(contT)
     }
 
     @inline
-    def toContTTrampoline[R, A](continuation: Continuation[R, A]): ContT[Trampoline, R, _ <: A] = {
+    def toContT[R, A](continuation: Continuation[R, A]): ContT[Trampoline, R, _ <: A] = {
       opacityTypes.toContT[R, A](continuation)
     }
 
