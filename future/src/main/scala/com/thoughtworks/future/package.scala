@@ -89,33 +89,28 @@ package object future {
     }
 
     @inline
-    def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
+    def apply[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
       opacityTypes.fromTryT(tryT)
     }
 
     @inline
-    def toTryT[A](future: Future[A]): TryT[UnitContinuation, A] = {
-      opacityTypes.toTryT(future)
+    def unapply[A](future: Future[A]): Some[TryT[UnitContinuation, A]] = {
+      Some(opacityTypes.toTryT(future))
     }
 
     @inline
-    def toContinuation[A](future: Future[A]): Continuation[Unit, Try[A]] = {
-      TryT.unapply[UnitContinuation, A](toTryT(future)).get
+    private def toContinuation[A](future: Future[A]): Continuation[Unit, Try[A]] = {
+      TryT.unapply[UnitContinuation, A](opacityTypes.toTryT(future)).get
     }
 
     @inline
-    def fromContinuation[A](continuation: Continuation[Unit, Try[A]]): Future[A] = {
-      fromTryT(TryT[UnitContinuation, A](continuation))
+    private def fromContinuation[A](continuation: Continuation[Unit, Try[A]]): Future[A] = {
+      apply(TryT[UnitContinuation, A](continuation))
     }
 
     @inline
-    def apply[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
-      fromContinuation(Continuation.apply(run))
-    }
-
-    @inline
-    def run[A](future: Future[A])(handler: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {
-      Continuation.run(toContinuation(future))(handler)
+    private def fromFunction[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
+      fromContinuation(Continuation.fromFunction(run))
     }
 
     @inline

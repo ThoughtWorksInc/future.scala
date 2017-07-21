@@ -154,7 +154,7 @@ object continuation {
   object Continuation {
 
     def async[R, A](run: (A => R) => R): Continuation[R, A] = {
-      Continuation { continue =>
+      Continuation.fromFunction { continue =>
         Trampoline.delay {
           run { a =>
             continue(a).run
@@ -172,15 +172,15 @@ object continuation {
     }
 
     @inline
-    def now[R, A](a: A): Continuation[R, A] = Continuation.apply(_(a))
+    def now[R, A](a: A): Continuation[R, A] = Continuation.fromFunction(_(a))
 
     @inline
-    def delay[R, A](a: => A): Continuation[R, A] = Continuation.apply { continue =>
+    def delay[R, A](a: => A): Continuation[R, A] = Continuation.fromFunction { continue =>
       suspend(continue(a))
     }
 
     @inline
-    def run[R, A](continuation: Continuation[R, A])(continue: A => Trampoline[R]): Trampoline[R] = {
+    private[future] def run[R, A](continuation: Continuation[R, A])(continue: A => Trampoline[R]): Trampoline[R] = {
       suspend {
         opacityTypes.toContT(continuation).run(continue)
       }
@@ -196,24 +196,24 @@ object continuation {
         .run
     }
 
-    def apply[R, A](run: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
+    private[future] def fromFunction[R, A](run: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
       opacityTypes.fromContT[R, A](ContT(run))
     }
 
     @inline
-    def fromContT[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
+    def apply[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
       opacityTypes.fromContT(contT)
     }
 
     @inline
-    def toContT[R, A](continuation: Continuation[R, A]): ContT[Trampoline, R, _ <: A] = {
-      opacityTypes.toContT[R, A](continuation)
+    def unapply[R, A](continuation: Continuation[R, A]): Some[ContT[Trampoline, R, _ <: A]] = {
+      Some(opacityTypes.toContT[R, A](continuation))
     }
 
     @inline
     implicit def continuationMonad[R]
-      : Monad[Continuation[R, ?]] with BindRec[Continuation[R, ?]] with Zip[Continuation[R, ?]] =
-      new Monad[Continuation[R, ?]] with BindRec[Continuation[R, ?]] with Zip[Continuation[R, ?]] {
+      : Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] =
+      new Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] {
 
         @inline
         override def zip[A, B](a: => Continuation[R, A], b: => Continuation[R, B]): Continuation[R, (A, B)] = {
@@ -221,7 +221,7 @@ object continuation {
         }
 
         override def bind[A, B](fa: Continuation[R, A])(f: (A) => Continuation[R, B]): Continuation[R, B] = {
-          Continuation.apply { (continue: B => Trampoline[R]) =>
+          Continuation.fromFunction { (continue: B => Trampoline[R]) =>
             Continuation.run[R, A](fa) { a =>
               Continuation.run[R, B](f(a))(continue)
             }
@@ -235,7 +235,7 @@ object continuation {
         }
 
         override def tailrecM[A, B](f: (A) => Continuation[R, A \/ B])(a: A): Continuation[R, B] = {
-          Continuation.apply { (continue: B => Trampoline[R]) =>
+          Continuation.fromFunction { (continue: B => Trampoline[R]) =>
             def loop(a: A): Trampoline[R] = {
               Continuation.run(f(a)) {
                 case -\/(a) =>
@@ -249,7 +249,7 @@ object continuation {
         }
 
         override def map[A, B](fa: Continuation[R, A])(f: (A) => B): Continuation[R, B] = {
-          Continuation.apply { (continue: B => Trampoline[R]) =>
+          Continuation.fromFunction { (continue: B => Trampoline[R]) =>
             Continuation.run(fa) { a: A =>
               suspend(continue(f(a)))
             }
@@ -282,7 +282,8 @@ object continuation {
                                 fb: => ParallelContinuation[B]): ParallelContinuation[(A, B)] = {
         import ParallelZipState._
 
-        val continuation: Continuation[Unit, (A, B)] = Continuation.apply { (continue: ((A, B)) => Trampoline[Unit]) =>
+        val continuation
+          : Continuation[Unit, (A, B)] = Continuation.fromFunction { (continue: ((A, B)) => Trampoline[Unit]) =>
           def listenA(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
             @tailrec
             def continueA(state: AtomicReference[ParallelZipState[A, B]], a: A): Trampoline[Unit] = {
