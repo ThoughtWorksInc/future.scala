@@ -72,6 +72,9 @@ object continuation {
     */
   type Continuation[R, +A] = opacityTypes.Continuation[R, A]
 
+  /**
+    * @template
+    */
   type UnitContinuation[+A] = Continuation[Unit, A]
 
   /** @example Given two [[ParallelContinuation]]s that contain immediate values,
