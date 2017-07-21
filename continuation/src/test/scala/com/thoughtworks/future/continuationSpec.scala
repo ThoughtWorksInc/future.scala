@@ -40,20 +40,22 @@ class continuationSpec extends AsyncFreeSpec with Matchers with Inside with Cont
       resultCount should be(0)
       resultCount += 1
     }
-    resultCount should be(0)
-    Continuation.run(Parallel.unwrap(result)) { _: Unit =>
-      Trampoline.delay {
-        val _ = resultCount should be(1)
+    resultCount should be(0);
+    {
+      Continuation.run(Parallel.unwrap(result)) { _: Unit =>
+        Trampoline.delay {
+          val _ = resultCount should be(1)
+        }
+      } >> Trampoline.suspend {
+        inside(handler0) {
+          case Some(handler) => handler(())
+        }
+      } >> Trampoline.suspend {
+        inside(handler1) {
+          case Some(handler) => handler(())
+        }
       }
-    } >> Trampoline.suspend {
-      inside(handler0) {
-        case Some(handler) => handler(())
-      }
-    } >> Trampoline.suspend {
-      inside(handler1) {
-        case Some(handler) => handler(())
-      }
-    } run
+    }.run
 
     resultCount should be(1)
 
