@@ -64,9 +64,9 @@ object continuation {
 
   /** An asynchronous task like `com.thoughtworks.future.continuation.Continuation` with additional benifits:
     *
-    * - Stack safe
-    * - Support covariant
-    * - Support both JVM and Scala.js
+    *  - Stack safe
+    *  - Support covariant
+    *  - Support both JVM and Scala.js
     *
     * @template
     */
