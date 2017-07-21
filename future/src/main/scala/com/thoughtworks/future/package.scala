@@ -77,10 +77,12 @@ package object future {
       fromContinuation(Continuation.delay(Try(a)))
     }
 
+    @inline
     implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
       opacityTypes.futureMonadError
     }
 
+    @inline
     implicit def futureParallelApplicative(
         implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
       opacityTypes.futureParallelApplicative

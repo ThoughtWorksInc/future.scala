@@ -200,14 +200,17 @@ object continuation {
       opacityTypes.fromContT[R, A](ContT(run))
     }
 
+    @inline
     def fromContTTrampoline[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
       opacityTypes.fromContT(contT)
     }
 
+    @inline
     def toContTTrampoline[R, A](continuation: Continuation[R, A]): ContT[Trampoline, R, _ <: A] = {
       opacityTypes.toContT[R, A](continuation)
     }
 
+    @inline
     implicit def continuationMonad[R]
       : Monad[Continuation[R, ?]] with BindRec[Continuation[R, ?]] with Zip[Continuation[R, ?]] =
       new Monad[Continuation[R, ?]] with BindRec[Continuation[R, ?]] with Zip[Continuation[R, ?]] {
