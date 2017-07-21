@@ -2,6 +2,8 @@ enablePlugins(Travis)
 
 enablePlugins(SonatypeRelease)
 
+enablePlugins(Optimization)
+
 lazy val secret = project settings(publishArtifact := false) configure { secret =>
   sys.env.get("GITHUB_PERSONAL_ACCESS_TOKEN") match {
     case Some(pat) =>
