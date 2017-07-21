@@ -61,7 +61,11 @@ object continuation {
     def fromContT[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = contT
   }
 
-  /** An asynchronous task like `com.thoughtworks.future.continuation.Continuation` except this [[Continuation]] are stack-safe and covariant
+  /** An asynchronous task like `com.thoughtworks.future.continuation.Continuation` with additional benifits:
+    *
+    * - Stack safe
+    * - Support covariant
+    * - Support both JVM and Scala.js
     *
     * @template
     */
