@@ -7,7 +7,7 @@ import org.scalatest.{AsyncFreeSpec, Inside, Matchers}
   * @author 杨博 (Yang Bo)
   */
 class continuationSpec extends AsyncFreeSpec with Matchers with Inside with ContinuationToScalaFuture {
-  "xxxxxx" in {
+  "test in paralle" in {
 
     import com.thoughtworks.future.continuation._
     import scalaz.Tags.Parallel
