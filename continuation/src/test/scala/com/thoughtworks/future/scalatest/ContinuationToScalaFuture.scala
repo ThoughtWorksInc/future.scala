@@ -11,12 +11,10 @@ import scalaz.Trampoline
   */
 trait ContinuationToScalaFuture {
 
-  implicit def continuationToScalaFuture[A](task: Continuation[A]): scala.concurrent.Future[A] = {
+  implicit def continuationToScalaFuture[A](task: Continuation[Unit, A]): scala.concurrent.Future[A] = {
     val promise = Promise[A]
-    Continuation.listen(task) { a =>
-      Trampoline.delay {
-        val _ = promise.success(a)
-      }
+    Continuation.onComplete(task) { a =>
+      val _ = promise.success(a)
     }
     promise.future
   }

@@ -16,7 +16,7 @@
 
 package com.thoughtworks
 
-import com.thoughtworks.future.continuation.Continuation
+import com.thoughtworks.future.continuation.{Continuation, UnitContinuation}
 import com.thoughtworks.tryt.covariant.TryT
 
 import scala.concurrent.ExecutionContext
@@ -34,48 +34,44 @@ package object future {
   private[future] trait OpacityTypes {
     type Future[+A]
     type ParallelFuture[A] = Future[A] @@ Parallel
-    def fromTryT[A](tryT: TryT[Continuation, A]): Future[A]
-    def toTryT[A](future: Future[A]): TryT[Continuation, A]
+    def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A]
+    def toTryT[A](future: Future[A]): TryT[UnitContinuation, A]
     def futureMonadError: MonadError[Future, Throwable] with BindRec[Future]
     def futureParallelApplicative(implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture]
   }
 
   private[future] val opacityTypes: OpacityTypes = new OpacityTypes {
-    type Future[+A] = TryT[Continuation, A]
+    type Future[+A] = TryT[UnitContinuation, A]
 
-    override def fromTryT[A](tryT: TryT[Continuation, A]): Future[A] = tryT
+    override def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A] = tryT
 
-    override def toTryT[A](future: Future[A]): TryT[Continuation, A] = future
+    override def toTryT[A](future: Future[A]): TryT[UnitContinuation, A] = future
 
     def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
-      TryT.tryTBindRec(Continuation.continuationMonad, Continuation.continuationMonad)
+      TryT.tryTBindRec[UnitContinuation](Continuation.continuationMonad, Continuation.continuationMonad)
     }
 
     def futureParallelApplicative(implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
-      TryT.tryTParallelApplicative[Continuation](Continuation.continuationParallelApplicative, throwableSemigroup)
+      TryT.tryTParallelApplicative[UnitContinuation](Continuation.continuationParallelApplicative, throwableSemigroup)
     }
   }
 
   object Future {
 
-    def jump()(implicit executionContext: ExecutionContext): Future[Unit] = {
-      Future.shift { handler: (Try[Unit] => Trampoline[Unit]) =>
-        Trampoline.delay {
-          executionContext.execute {
-            new Runnable {
-              override def run(): Unit = handler(Success(())).run
-            }
-          }
-        }
-      }
+    def async[A](run: (Try[A] => Unit) => Unit): Future[A] = {
+      fromContinuation(Continuation.async(run))
+    }
+
+    def execute[A](a: => A)(implicit executionContext: ExecutionContext): Future[A] = {
+      fromContinuation(Continuation.execute(Try(a)))
     }
 
     def now[A](a: A): Future[A] = {
-      Future(TryT(Continuation.delay(Success(a))))
+      fromContinuation(Continuation.now(Success(a)))
     }
 
     def delay[A](a: => A): Future[A] = {
-      Future(TryT(Continuation.delay(Try(a))))
+      fromContinuation(Continuation.delay(Try(a)))
     }
 
     implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
@@ -87,25 +83,38 @@ package object future {
       opacityTypes.futureParallelApplicative
     }
 
-    def apply[A](tryT: TryT[Continuation, A]): Future[A] = {
+    def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
       opacityTypes.fromTryT(tryT)
     }
 
-    def unapply[A](future: Future[A]): Some[TryT[Continuation, A]] = {
-      Some(opacityTypes.toTryT(future))
+    @inline
+    def toTryT[A](future: Future[A]): TryT[UnitContinuation, A] = {
+      opacityTypes.toTryT(future)
     }
 
-    def shift[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
-      opacityTypes.fromTryT(TryT(Continuation.shift(run)))
+    @inline
+    def toContinuation[A](future: Future[A]): Continuation[Unit, Try[A]] = {
+      TryT.unapply[UnitContinuation, A](toTryT(future)).get
     }
 
+    @inline
+    def fromContinuation[A](continuation: Continuation[Unit, Try[A]]): Future[A] = {
+      fromTryT(TryT[UnitContinuation, A](continuation))
+    }
+
+    @inline
+    def apply[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
+      fromContinuation(Continuation.apply(run))
+    }
+
+    @inline
     def run[A](future: Future[A])(handler: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {
-      val TryT(continuation) = opacityTypes.toTryT(future)
-      Continuation.run(continuation)(handler)
+      Continuation.run(toContinuation(future))(handler)
     }
 
-    def listen[A](future: Future[A])(handler: Try[A] => Trampoline[Unit]): Unit = {
-      run(future)(handler).run
+    @inline
+    def onComplete[A](future: Future[A])(handler: Try[A] => Unit): Unit = {
+      Continuation.onComplete(toContinuation(future))(handler)
     }
   }
 
