@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
-import scalaz.{-\/, @@, Applicative, BindRec, ContT, Monad, Trampoline, Zip, \/, \/-}
+import scalaz.{-\/, @@, Applicative, BindRec, ContT, Monad, Tags, Trampoline, Zip, \/, \/-}
 import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
 import scala.language.higherKinds
@@ -30,12 +30,13 @@ import scala.language.existentials
   * @author 杨博 (Yang Bo)
   */
 object continuation {
+
+  @inline
+  private def suspend[A](a: => Trampoline[A]) = Trampoline.suspend(a)
+
   private[continuation] trait OpacityTypes {
     type Continuation[+A]
     type ParallelContinuation[A] = Continuation[A] @@ Parallel
-
-    def continuationMonad: Monad[Continuation] with BindRec[Continuation] with Zip[Continuation]
-    def continuationParallelApplicative: Applicative[ParallelContinuation] with Zip[ParallelContinuation]
 
     def toContT[A](continuation: Continuation[A]): ContT[Trampoline, Unit, _ <: A]
     def fromContT[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A]
@@ -54,7 +55,196 @@ object continuation {
   }
 
   private[continuation] val opacityTypes: OpacityTypes = new OpacityTypes {
-    override object continuationMonad extends Monad[Continuation] with BindRec[Continuation] with Zip[Continuation] {
+    type Continuation[+A] = ContT[Trampoline, Unit, _ <: A]
+
+    def toContT[A](continuation: Continuation[A]): ContT[Trampoline, Unit, _ <: A] = continuation
+    def fromContT[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = contT
+  }
+
+  /** An asynchronous task like `com.thoughtworks.future.continuation.Continuation` except this [[Continuation]] are stack-safe and covariant
+    *
+    * @template
+    */
+  type Continuation[+A] = opacityTypes.Continuation[A]
+
+  /** @example Given two [[ParallelContinuation]]s that contain immediate values,
+    *
+    *          {{{
+    *          import com.thoughtworks.future.continuation._
+    *          import scalaz.Tags.Parallel
+    *          import scalaz.syntax.all._
+    *          import com.thoughtworks.future.continuation.Continuation._
+    *
+    *          val pc0: ParallelContinuation[Int] = Parallel(Continuation.now[Int](40))
+    *          val pc1: ParallelContinuation[Int] = Parallel(Continuation.now[Int](2))
+    *          }}}
+    *
+    *          when map them together,
+    *
+    *          {{{
+    *          val result: ParallelContinuation[Int] = (pc0 |@| pc1)(_ + _)
+    *          }}}
+    *
+    *          then the result should be a `ParallelContinuation` as well,
+    *          and it is able to convert to a normal [[Continuation]]
+    *
+    *          {{{
+    *          Parallel.unwrap(result).map {
+    *            _ should be(42)
+    *          }
+    *          }}}
+    *
+    * @example Given two [[ParallelContinuation]]s,
+    *          each of them modifies a `var`,
+    *
+    *          {{{
+    *          import com.thoughtworks.future.continuation._
+    *          import scalaz.Tags.Parallel
+    *          import scalaz.syntax.all._
+    *          import com.thoughtworks.future.continuation.Continuation._
+    *
+    *          var count0 = 0
+    *          var count1 = 0
+    *
+    *          val pc0: ParallelContinuation[Unit] = Parallel(Continuation.delay[Unit]{
+    *            count0 += 1
+    *          })
+    *          val pc1: ParallelContinuation[Unit] = Parallel(Continuation.delay[Unit]{
+    *            count1 += 1
+    *          })
+    *          }}}
+    *
+    *          when map them together,
+    *
+    *          {{{
+    *          val result: ParallelContinuation[Unit] = (pc0 |@| pc1) { (u0: Unit, u1: Unit) => }
+    *          }}}
+    *
+    *          then the two vars have not been modified right now,
+    *
+    *          {{{
+    *          count0 should be(0)
+    *          count1 should be(0)
+    *          }}}
+    *
+    *          when the result `ParallelContinuation` get done,
+    *          then two vars should be modified only once for each.
+    *
+    *          {{{
+    *          Parallel.unwrap(result).map { _: Unit =>
+    *            count0 should be(1)
+    *            count1 should be(1)
+    *          }
+    *          }}}
+    *
+
+    * @example Given two asynchronous [[ParallelContinuation]]s,
+    *          each of them saves its handler,
+    *
+    *          {{{
+    *          import com.thoughtworks.future.continuation._
+    *          import scalaz.Tags.Parallel
+    *          import scalaz.syntax.all._
+    *          import scalaz.Trampoline
+    *          import scalaz.Free.Trampoline
+    *          import com.thoughtworks.future.continuation.Continuation._
+    *
+    *          var resultCount = 0
+    *          var handler0: Option[Unit => Trampoline[Unit]] = None
+    *          var handler1: Option[Unit => Trampoline[Unit]] = None
+    *
+    *          val pc0: ParallelContinuation[Unit] = Parallel(Continuation.shift[Unit]{ (handler: Unit => Trampoline[Unit]) =>
+    *            inside(handler0) {
+    *              case None =>
+    *                Trampoline.delay {
+    *                  handler0 = Some(handler)
+    *                }
+    *            }
+    *          })
+    *          val pc1: ParallelContinuation[Unit] = Parallel(Continuation.shift[Unit]{ (handler: Unit => Trampoline[Unit]) =>
+    *            inside(handler1) {
+    *              case None =>
+    *                Trampoline.delay {
+    *                  handler1 = Some(handler)
+    *                }
+    *            }
+    *          })
+    *          }}}
+    *
+    *          when map them together,
+    *
+    *          {{{
+    *          val result: ParallelContinuation[Unit] = (pc0 |@| pc1) { (u0: Unit, u1: Unit) =>
+    *            resultCount should be(0)
+    *            resultCount += 1
+    *          }
+    *          }}}
+    *
+    *          then the two vars have not been modified right now,
+    *
+    *          {{{
+    *          resultCount should be(0)
+    *          }}}
+    *
+    *          when the result `ParallelContinuation` get done,
+    *          then two vars should be modified only once for each.
+    *
+    *          {{{
+    *          Continuation.run(Parallel.unwrap(result)) { _: Unit =>
+    *            Trampoline.delay {
+    *              val _ = resultCount should be(1)
+    *            }
+    *          } >> Trampoline.suspend {
+    *            inside(handler0) {
+    *              case Some(handler) => handler(())
+    *            }
+    *          } >> Trampoline.suspend {
+    *            inside(handler1) {
+    *              case Some(handler) => handler(())
+    *            }
+    *          } run
+    *
+    *          resultCount should be(1)
+    *          }}}
+    *
+    * @template
+    */
+  type ParallelContinuation[A] = Continuation[A] @@ Parallel
+
+  object Continuation {
+
+    def now[A](a: A): Continuation[A] = Continuation.shift(_(a))
+
+    @inline
+    def delay[A](a: => A): Continuation[A] = Continuation.shift { continue =>
+      suspend(continue(a))
+    }
+
+    @inline
+    def run[A](continuation: Continuation[A])(handler: A => Trampoline[Unit]): Trampoline[Unit] = {
+      suspend {
+        opacityTypes.toContT(continuation).run(handler)
+      }
+    }
+
+    @inline
+    def listen[A](continuation: Continuation[A])(handler: A => Trampoline[Unit]): Unit = {
+      run(continuation)(handler).run
+    }
+
+    def shift[A](run: (A => Trampoline[Unit]) => Trampoline[Unit]): Continuation[A] = {
+      opacityTypes.fromContT[A](ContT(run))
+    }
+
+    def apply[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = {
+      opacityTypes.fromContT(contT)
+    }
+
+    def unapply[A](future: Continuation[A]) = {
+      Some(opacityTypes.toContT(future))
+    }
+
+    implicit object continuationMonad extends Monad[Continuation] with BindRec[Continuation] with Zip[Continuation] {
 
       @inline
       override def zip[A, B](a: => Continuation[A], b: => Continuation[B]): Continuation[(A, B)] = {
@@ -62,42 +252,37 @@ object continuation {
       }
 
       override def bind[A, B](fa: Continuation[A])(f: (A) => Continuation[B]): Continuation[B] = {
-        ContT { (continue: B => Trampoline[Unit]) =>
-          Trampoline.suspend {
-            fa.run { a =>
-              Trampoline.suspend {
-                f(a).run(continue)
-              }
-            }
+        Continuation.shift { (continue: B => Trampoline[Unit]) =>
+          Continuation.run[A](fa) { a =>
+            Continuation.run[B](f(a))(continue)
           }
         }
       }
 
       @inline
-      override def point[A](a: => A): ContT[Trampoline, Unit, A] = {
-        ContT.point(a)
+      override def point[A](a: => A): Continuation[A] = {
+        val contT: ContT[Trampoline, Unit, A] = ContT.point(a)
+        opacityTypes.fromContT(contT)
       }
 
       override def tailrecM[A, B](f: (A) => Continuation[A \/ B])(a: A): Continuation[B] = {
-        ContT { (continue: B => Trampoline[Unit]) =>
+        Continuation.shift { (continue: B => Trampoline[Unit]) =>
           def loop(a: A): Trampoline[Unit] = {
-            f(a).run {
+            Continuation.run(f(a)) {
               case -\/(a) =>
-                Trampoline.suspend(loop(a))
+                loop(a)
               case \/-(b) =>
-                Trampoline.suspend(continue(b))
+                suspend(continue(b))
             }
           }
-          Trampoline.suspend(loop(a))
+          loop(a)
         }
       }
 
       override def map[A, B](fa: Continuation[A])(f: (A) => B): Continuation[B] = {
-        ContT { (continue: B => Trampoline[Unit]) =>
-          Trampoline.suspend {
-            fa.run { a: A =>
-              Trampoline.suspend(continue(f(a)))
-            }
+        Continuation.shift { (continue: B => Trampoline[Unit]) =>
+          Continuation.run(fa) { a: A =>
+            suspend(continue(f(a)))
           }
         }
       }
@@ -107,9 +292,20 @@ object continuation {
       }
     }
 
-    override object continuationParallelApplicative
+    implicit object continuationParallelApplicative
         extends Applicative[ParallelContinuation]
         with Zip[ParallelContinuation] {
+
+      override def apply2[A, B, C](fa: => ParallelContinuation[A], fb: => ParallelContinuation[B])(
+          f: (A, B) => C): ParallelContinuation[C] = {
+        val Parallel(continuation) = tuple2(fa, fb)
+        Parallel(continuationMonad.map(continuation) { case (a, b) => f(a, b) })
+      }
+
+      override def map[A, B](fa: ParallelContinuation[A])(f: (A) => B): ParallelContinuation[B] = {
+        val Parallel(continuation) = fa
+        Parallel(continuationMonad.map(continuation)(f))
+      }
 
       override def point[A](a: => A): ParallelContinuation[A] = Parallel(continuationMonad.point[A](a))
 
@@ -117,8 +313,8 @@ object continuation {
                                 fb: => ParallelContinuation[B]): ParallelContinuation[(A, B)] = {
         import ParallelZipState._
 
-        val continuation: Continuation[(A, B)] = ContT { (continue: ((A, B)) => Trampoline[Unit]) =>
-          def runA(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
+        val continuation: Continuation[(A, B)] = Continuation.shift { (continue: ((A, B)) => Trampoline[Unit]) =>
+          def listenA(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
             @tailrec
             def handlerA(state: AtomicReference[ParallelZipState[A, B]], a: A): Trampoline[Unit] = {
               state.get() match {
@@ -130,18 +326,16 @@ object continuation {
                   }
                 case GotA(_) =>
                   val forkState = new AtomicReference[ParallelZipState[A, B]](GotA(a))
-                  Trampoline.suspend {
-                    runA(forkState)
-                  }
+                  listenB(forkState)
                 case GotB(b) =>
-                  Trampoline.suspend {
+                  suspend {
                     continue((a, b))
                   }
               }
             }
-            Parallel.unwrap(fa).run(handlerA(state, _))
+            Continuation.run(Parallel.unwrap(fa))(handlerA(state, _))
           }
-          def runB(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
+          def listenB(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
             @tailrec
             def handlerB(state: AtomicReference[ParallelZipState[A, B]], b: B): Trampoline[Unit] = {
               state.get() match {
@@ -153,20 +347,18 @@ object continuation {
                   }
                 case GotB(_) =>
                   val forkState = new AtomicReference[ParallelZipState[A, B]](GotB(b))
-                  Trampoline.suspend {
-                    runB(forkState)
-                  }
+                  listenA(forkState)
                 case GotA(a) =>
-                  Trampoline.suspend {
+                  suspend {
                     continue((a, b))
                   }
               }
             }
-            Parallel.unwrap(fb).run(handlerB(state, _))
+            Continuation.run(Parallel.unwrap(fb))(handlerB(state, _))
           }
           val state = new AtomicReference[ParallelZipState[A, B]](GotNeither())
           import scalaz.syntax.bind._
-          runA(state) >> runB(state)
+          listenA(state) >> listenB(state)
         }
         Parallel(continuation)
       }
@@ -184,48 +376,6 @@ object continuation {
         })
       }
 
-    }
-
-    type Continuation[+A] = ContT[Trampoline, Unit, _ <: A]
-
-    def toContT[A](continuation: Continuation[A]): ContT[Trampoline, Unit, _ <: A] = continuation
-    def fromContT[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = contT
-  }
-
-  /** An asynchronous task like `com.thoughtworks.future.continuation.Continuation` except this [[Continuation]] are stack-safe and covariant
-    *
-    * @template
-    */
-  type Continuation[+A] = opacityTypes.Continuation[A]
-
-  type ParallelContinuation[A] = Continuation[A] @@ Parallel
-
-  object Continuation {
-    def now[A](a: A): Continuation[A] = Continuation.shift(_(a))
-    def delay[A](a: => A): Continuation[A] = Continuation.shift(_(a))
-
-    def run[A](continuation: Continuation[A])(handler: A => Trampoline[Unit]): Trampoline[Unit] = {
-      opacityTypes.toContT(continuation).run(handler)
-    }
-
-    def shift[A](run: (A => Trampoline[Unit]) => Trampoline[Unit]): Continuation[A] = {
-      opacityTypes.fromContT[A](ContT(run))
-    }
-
-    def apply[A](contT: ContT[Trampoline, Unit, _ <: A]): Continuation[A] = {
-      opacityTypes.fromContT(contT)
-    }
-
-    def unapply[A](future: Continuation[A]) = {
-      Some(opacityTypes.toContT(future))
-    }
-
-    implicit def continuationMonad: Monad[Continuation] with BindRec[Continuation] with Zip[Continuation] = {
-      opacityTypes.continuationMonad
-    }
-
-    implicit def continuationParallelApplicative: Applicative[ParallelContinuation] with Zip[ParallelContinuation] = {
-      opacityTypes.continuationParallelApplicative
     }
 
   }

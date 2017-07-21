@@ -103,6 +103,10 @@ package object future {
       val TryT(continuation) = opacityTypes.toTryT(future)
       Continuation.run(continuation)(handler)
     }
+
+    def listen[A](future: Future[A])(handler: Try[A] => Trampoline[Unit]): Unit = {
+      run(future)(handler).run
+    }
   }
 
   /** @template */

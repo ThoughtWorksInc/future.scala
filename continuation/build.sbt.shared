@@ -1,5 +1,16 @@
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.14"
+libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
 
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
 
 enablePlugins(Example)
+
+exampleSuperTypes ~= { oldExampleSuperTypes =>
+  import oldExampleSuperTypes._
+  updated(indexOf("_root_.org.scalatest.FreeSpec"), "_root_.org.scalatest.AsyncFreeSpec")
+}
+
+exampleSuperTypes += "_root_.org.scalatest.Inside"
+
+exampleSuperTypes += "_root_.com.thoughtworks.future.scalatest.ContinuationToScalaFuture"
+
+scalacOptions += "-Ypartial-unification"
