@@ -171,6 +171,7 @@ object continuation {
       }
     }
 
+    @inline
     def now[R, A](a: A): Continuation[R, A] = Continuation.apply(_(a))
 
     @inline

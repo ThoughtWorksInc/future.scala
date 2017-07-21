@@ -43,8 +43,10 @@ package object future {
   private[future] val opacityTypes: OpacityTypes = new OpacityTypes {
     type Future[+A] = TryT[UnitContinuation, A]
 
+    @inline
     override def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A] = tryT
 
+    @inline
     override def toTryT[A](future: Future[A]): TryT[UnitContinuation, A] = future
 
     def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
@@ -66,6 +68,7 @@ package object future {
       fromContinuation(Continuation.execute(Try(a)))
     }
 
+    @inline
     def now[A](a: A): Future[A] = {
       fromContinuation(Continuation.now(Success(a)))
     }
@@ -83,6 +86,7 @@ package object future {
       opacityTypes.futureParallelApplicative
     }
 
+    @inline
     def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
       opacityTypes.fromTryT(tryT)
     }
