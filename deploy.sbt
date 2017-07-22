@@ -27,3 +27,12 @@ lazy val secret = project settings(publishArtifact := false) configure { secret 
       secret
   }
 }
+
+scalacOptions in ThisBuild ++= {
+  import scala.math.Ordering.Implicits._
+  if (VersionNumber(scalaVersion.value).numbers < Seq(2L, 12L)) {
+    Seq("-Ybackend:GenBCode")
+  } else {
+    Nil
+  }
+}
