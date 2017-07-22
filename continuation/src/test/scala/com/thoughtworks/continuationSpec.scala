@@ -19,7 +19,7 @@ class continuationSpec extends AsyncFreeSpec with Matchers with Inside with Cont
     var handler0: Option[Unit => Trampoline[Unit]] = None
     var handler1: Option[Unit => Trampoline[Unit]] = None
 
-    val pc0: ParallelContinuation[Unit] = Parallel(Continuation.fromFunction { (handler: Unit => Trampoline[Unit]) =>
+    val pc0: ParallelContinuation[Unit] = Parallel(Continuation.safeAsync { (handler: Unit => Trampoline[Unit]) =>
       inside(handler0) {
         case None =>
           Trampoline.delay {
@@ -27,7 +27,7 @@ class continuationSpec extends AsyncFreeSpec with Matchers with Inside with Cont
           }
       }
     })
-    val pc1: ParallelContinuation[Unit] = Parallel(Continuation.fromFunction { (handler: Unit => Trampoline[Unit]) =>
+    val pc1: ParallelContinuation[Unit] = Parallel(Continuation.safeAsync { (handler: Unit => Trampoline[Unit]) =>
       inside(handler1) {
         case None =>
           Trampoline.delay {
@@ -41,7 +41,7 @@ class continuationSpec extends AsyncFreeSpec with Matchers with Inside with Cont
     }
     resultCount should be(0);
     {
-      Continuation.run(Parallel.unwrap(result)) { _: Unit =>
+      Continuation.safeOnComplete(Parallel.unwrap(result)) { _: Unit =>
         Trampoline.delay {
           val _ = resultCount should be(1)
         }

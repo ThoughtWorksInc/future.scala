@@ -28,6 +28,7 @@ import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
 import scala.language.higherKinds
 import scala.language.existentials
+import scala.util.Try
 
 /**
   * @author 杨博 (Yang Bo)
@@ -89,6 +90,12 @@ object continuation {
         }
         .run
     }
+
+    @inline
+    def safeOnComplete(continue: A => Trampoline[R]): Trampoline[R] = {
+      Continuation.safeOnComplete(continuation)(continue)
+    }
+
   }
 
   /** @example Given two [[ParallelContinuation]]s that contain immediate values,
@@ -185,7 +192,7 @@ object continuation {
       import ParallelZipState._
 
       val continuation
-        : Continuation[Unit, (A, B)] = Continuation.fromFunction { (continue: ((A, B)) => Trampoline[Unit]) =>
+        : Continuation[Unit, (A, B)] = Continuation.safeAsync { (continue: ((A, B)) => Trampoline[Unit]) =>
         def listenA(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
           @tailrec
           def continueA(state: AtomicReference[ParallelZipState[A, B]], a: A): Trampoline[Unit] = {
@@ -205,7 +212,7 @@ object continuation {
                 }
             }
           }
-          Continuation.run(Parallel.unwrap(fa))(continueA(state, _))
+          Continuation.safeOnComplete(Parallel.unwrap(fa))(continueA(state, _))
         }
         def listenB(state: AtomicReference[ParallelZipState[A, B]]): Trampoline[Unit] = {
           @tailrec
@@ -226,7 +233,7 @@ object continuation {
                 }
             }
           }
-          Continuation.run(Parallel.unwrap(fb))(continueB(state, _))
+          Continuation.safeOnComplete(Parallel.unwrap(fb))(continueB(state, _))
         }
         val state = new AtomicReference[ParallelZipState[A, B]](GotNeither())
         import scalaz.syntax.bind._
@@ -253,7 +260,7 @@ object continuation {
   object Continuation {
 
     def async[R, A](run: (A => R) => R): Continuation[R, A] = {
-      Continuation.fromFunction { continue =>
+      safeAsync { continue =>
         Trampoline.delay {
           run { a =>
             continue(a).run
@@ -271,21 +278,22 @@ object continuation {
     }
 
     @inline
-    def now[R, A](a: A): Continuation[R, A] = Continuation.fromFunction(_(a))
+    def now[R, A](a: A): Continuation[R, A] = Continuation.safeAsync(_(a))
 
     @inline
-    def delay[R, A](a: => A): Continuation[R, A] = Continuation.fromFunction { continue =>
+    def delay[R, A](a: => A): Continuation[R, A] = Continuation.safeAsync { continue =>
       suspend(continue(a))
     }
 
     @inline
-    private[thoughtworks] def run[R, A](continuation: Continuation[R, A])(continue: A => Trampoline[R]): Trampoline[R] = {
+    private[thoughtworks] def safeOnComplete[R, A](continuation: Continuation[R, A])(
+        continue: A => Trampoline[R]): Trampoline[R] = {
       suspend {
         opacityTypes.toContT(continuation).run(continue)
       }
     }
 
-    private[thoughtworks] def fromFunction[R, A](run: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
+    def safeAsync[R, A](run: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
       opacityTypes.fromContT[R, A](ContT(run))
     }
 
@@ -311,9 +319,9 @@ object continuation {
       }
 
       override def bind[A, B](fa: Continuation[R, A])(f: (A) => Continuation[R, B]): Continuation[R, B] = {
-        Continuation.fromFunction { (continue: B => Trampoline[R]) =>
-          Continuation.run[R, A](fa) { a =>
-            Continuation.run[R, B](f(a))(continue)
+        Continuation.safeAsync { (continue: B => Trampoline[R]) =>
+          Continuation.safeOnComplete[R, A](fa) { a =>
+            Continuation.safeOnComplete[R, B](f(a))(continue)
           }
         }
       }
@@ -325,9 +333,9 @@ object continuation {
       }
 
       override def tailrecM[A, B](f: (A) => Continuation[R, A \/ B])(a: A): Continuation[R, B] = {
-        Continuation.fromFunction { (continue: B => Trampoline[R]) =>
+        Continuation.safeAsync { (continue: B => Trampoline[R]) =>
           def loop(a: A): Trampoline[R] = {
-            Continuation.run(f(a)) {
+            Continuation.safeOnComplete(f(a)) {
               case -\/(a) =>
                 loop(a)
               case \/-(b) =>
@@ -339,8 +347,8 @@ object continuation {
       }
 
       override def map[A, B](fa: Continuation[R, A])(f: (A) => B): Continuation[R, B] = {
-        Continuation.fromFunction { (continue: B => Trampoline[R]) =>
-          Continuation.run(fa) { a: A =>
+        Continuation.safeAsync { (continue: B => Trampoline[R]) =>
+          Continuation.safeOnComplete(fa) { a: A =>
             suspend(continue(f(a)))
           }
         }

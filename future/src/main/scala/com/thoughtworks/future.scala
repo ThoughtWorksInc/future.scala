@@ -23,6 +23,7 @@ import scala.concurrent.ExecutionContext
 import scalaz.{@@, Applicative, BindRec, MonadError, Semigroup}
 import scala.language.higherKinds
 import scala.util.{Success, Try}
+import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
 
 /**
@@ -68,18 +69,32 @@ object future {
     opacityTypes.futureParallelApplicative
   }
 
-  implicit final class FutureOps[A](future: Future[A]) {
+  implicit final class ScalaFutureOps[A](scalaFuture: scala.concurrent.Future[A]) {
+    def asThoughtworks(implicit executionContext: ExecutionContext): Future[A] = {
+      Future.async { continue =>
+        scalaFuture.onComplete(continue)
+      }
+    }
+  }
+
+  implicit final class ThoughtworksFutureOps[A](future: Future[A]) {
     @inline
-    def toScalaFuture: scala.concurrent.Future[A] = {
+    def asScala: scala.concurrent.Future[A] = {
       val promise = scala.concurrent.Promise[A]
       onComplete(promise.complete(_))
       promise.future
     }
 
     @inline
-    def onComplete(handler: Try[A] => Unit): Unit = {
+    def onComplete(continue: Try[A] => Unit): Unit = {
       val Future(TryT(continuation)) = future
-      continuation.onComplete(handler)
+      continuation.onComplete(continue)
+    }
+
+    @inline
+    def safeOnComplete(handler: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {
+      val Future(TryT(continuation)) = future
+      continuation.safeOnComplete(handler)
     }
   }
 
@@ -88,6 +103,10 @@ object future {
     def fromScalaFuture[A](scalaFuture: scala.concurrent.Future[A])(
         implicit executionContext: ExecutionContext): Future[A] = {
       Future.async(scalaFuture.onComplete(_))
+    }
+
+    def safeAsync[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
+      fromContinuation(Continuation.safeAsync(run))
     }
 
     def async[A](run: (Try[A] => Unit) => Unit): Future[A] = {
