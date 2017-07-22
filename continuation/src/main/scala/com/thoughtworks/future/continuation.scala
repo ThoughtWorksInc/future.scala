@@ -22,7 +22,7 @@ import com.thoughtworks.continuation._
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scalaz.{-\/, @@, Applicative, BindRec, ContT, Monad, Tags, Trampoline, Zip, \/, \/-}
 import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
@@ -96,6 +96,16 @@ object continuation {
       Continuation.safeOnComplete(continuation)(continue)
     }
 
+  }
+
+  implicit final class UnitContinuationOps[A](continuation: UnitContinuation[A]) {
+    def toScalaFuture: Future[A] = {
+      val promise = Promise[A]
+      ContinuationOps[Unit, A](continuation).onComplete { a =>
+        val _ = promise.success(a)
+      }
+      promise.future
+    }
   }
 
   /** @example Given two [[ParallelContinuation]]s that contain immediate values,

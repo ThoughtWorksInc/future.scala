@@ -16,6 +16,7 @@
 
 package com.thoughtworks
 
+import scalaz.syntax.all._
 import com.thoughtworks.continuation._
 import com.thoughtworks.tryt.covariant.TryT
 
@@ -69,17 +70,23 @@ object future {
     opacityTypes.futureParallelApplicative
   }
 
-  implicit final class ScalaFutureOps[A](scalaFuture: scala.concurrent.Future[A]) {
-    def asThoughtworks(implicit executionContext: ExecutionContext): Future[A] = {
+  implicit final class ScalaFutureToThoughtworksFutureOps[A](scalaFuture: scala.concurrent.Future[A]) {
+    def toThoughtworksFuture(implicit executionContext: ExecutionContext): Future[A] = {
       Future.async { continue =>
         scalaFuture.onComplete(continue)
       }
     }
   }
 
+  implicit final class UnitContinuationToThoughtworksFutureOps[A](continuation: UnitContinuation[A]) {
+    def toThoughtworksFuture: Future[A] = {
+      Future(TryT(continuation.map(Try(_))))
+    }
+  }
+
   implicit final class ThoughtworksFutureOps[A](future: Future[A]) {
     @inline
-    def asScala: scala.concurrent.Future[A] = {
+    def toScalaFuture: scala.concurrent.Future[A] = {
       val promise = scala.concurrent.Promise[A]
       onComplete(promise.complete(_))
       promise.future
@@ -99,11 +106,6 @@ object future {
   }
 
   object Future {
-
-    def fromScalaFuture[A](scalaFuture: scala.concurrent.Future[A])(
-        implicit executionContext: ExecutionContext): Future[A] = {
-      Future.async(scalaFuture.onComplete(_))
-    }
 
     def safeAsync[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
       fromContinuation(Continuation.safeAsync(run))
