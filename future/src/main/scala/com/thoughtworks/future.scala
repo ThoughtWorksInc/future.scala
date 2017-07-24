@@ -103,6 +103,13 @@ object future {
       val Future(TryT(continuation)) = future
       continuation.safeOnComplete(handler)
     }
+
+    @inline
+    def blockingAwait: A = {
+      val Future(TryT(continuation)) = future
+      continuation.blockingAwait.get
+    }
+
   }
 
   object Future {

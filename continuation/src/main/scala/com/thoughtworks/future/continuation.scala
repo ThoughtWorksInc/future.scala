@@ -106,6 +106,24 @@ object continuation {
       }
       promise.future
     }
+
+    def blockingAwait(): A = {
+      val lock = new AnyRef
+      lock.synchronized {
+        @volatile var result: Option[A] = None
+        continuation.onComplete { a =>
+          lock.synchronized {
+            result = Some(a)
+            lock.notify()
+          }
+        }
+        while (result.isEmpty) {
+          lock.wait()
+        }
+        val Some(a) = result
+        a
+      }
+    }
   }
 
   /** @example Given two [[ParallelContinuation]]s that contain immediate values,
