@@ -33,7 +33,7 @@ import scalaz.Tags.Parallel
   */
 object future {
 
-  private[future] trait OpacityTypes {
+  private trait OpacityTypes {
     type Future[+A]
     type ParallelFuture[A] = Future[A] @@ Parallel
     def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A]
@@ -77,11 +77,12 @@ object future {
     opacityTypes.futureParallelApplicative
   }
 
-  /**
+  /** Extension methods for [[scala.concurrent.Future]]
     *
     * @group Implicit Views
     */
   implicit final class ScalaFutureToThoughtworksFutureOps[A](scalaFuture: scala.concurrent.Future[A]) {
+
     def toThoughtworksFuture(implicit executionContext: ExecutionContext): Future[A] = {
       Future.async { continue =>
         scalaFuture.onComplete(continue)
@@ -89,7 +90,7 @@ object future {
     }
   }
 
-  /**
+  /** Extension methods for [[com.thoughtworks.continuation.UnitContinuation UnitContinuation]]
     *
     * @group Implicit Views
     */
@@ -99,11 +100,11 @@ object future {
     }
   }
 
-  /**
+  /** Extension methods for [[Future]]
     *
     * @group Implicit Views
     */
-  implicit final class ThoughtworksFutureOps[A](future: Future[A]) {
+  implicit final class ThoughtworksFutureOps[A](val underlying: Future[A]) extends AnyVal {
     @inline
     def toScalaFuture: scala.concurrent.Future[A] = {
       val promise = scala.concurrent.Promise[A]
@@ -111,21 +112,30 @@ object future {
       promise.future
     }
 
+    /** Runs the [[underlying]] [[Future]].
+      *
+      * @param continue the callback function that will be called once the [[underlying]] continuation complete.
+      * @note The JVM call stack will grow if there are recursive calls to [[onComplete]] in `continue`.
+      *       A `StackOverflowError` may occurs if the recursive calls are very deep.
+      * @see [[safeOnComplete]] in case of `StackOverflowError`.
+      */
     @inline
     def onComplete(continue: Try[A] => Unit): Unit = {
-      val Future(TryT(continuation)) = future
+      val Future(TryT(continuation)) = underlying
       continuation.onComplete(continue)
     }
 
+    /** Runs the [[underlying]] continuation like [[onComplete]], except this `safeOnComplete` is stack-safe. */
     @inline
     def safeOnComplete(continue: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {
-      val Future(TryT(continuation)) = future
+      val Future(TryT(continuation)) = underlying
       continuation.safeOnComplete(continue)
     }
 
+    /** Blocking waits and returns the result value of the [[underlying]] [[Future]].*/
     @inline
     def blockingAwait: A = {
-      val Future(TryT(continuation)) = future
+      val Future(TryT(continuation)) = underlying
       continuation.blockingAwait.get
     }
 
@@ -133,32 +143,52 @@ object future {
 
   object Future {
 
+    /** Returns a [[Future]] of an asynchronous operation like [[async]] except this method is stack-safe. */
     def safeAsync[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
       fromContinuation(UnitContinuation.safeAsync(run))
     }
 
+    /** Returns a [[Future]] of an asynchronous operation.
+      *
+      * @see [[safeAsync]] in case of `StackOverflowError`.
+      */
     def async[A](run: (Try[A] => Unit) => Unit): Future[A] = {
       fromContinuation(UnitContinuation.async(run))
     }
 
+    /** Returns a [[Future]] of a blocking operation that will run on `executionContext`. */
     def execute[A](a: => A)(implicit executionContext: ExecutionContext): Future[A] = {
       fromContinuation(UnitContinuation.execute(Try(a)))
     }
 
+    /** Returns a [[Future]] whose value is always `a`. */
     @inline
     def now[A](a: A): Future[A] = {
       fromContinuation(UnitContinuation.now(Success(a)))
     }
 
+    /** Returns a [[Future]] of a blocking operation */
     def delay[A](a: => A): Future[A] = {
       fromContinuation(UnitContinuation.delay(Try(a)))
     }
 
+    /** Creates a [[Future]] from the raw [[com.thoughtworks.tryt.covariant.TryT]] */
     @inline
     def apply[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
       opacityTypes.fromTryT(tryT)
     }
 
+    /** Extracts the underlying [[com.thoughtworks.tryt.covariant.TryT]] of `future`
+      *
+      * @example This `unapply` can be used in pattern matching expression.
+      *          {{{
+      *          import com.thoughtworks.future.Future
+      *          import com.thoughtworks.continuation.UnitContinuation
+      *          val Future(tryT) = Future.now[Int](42)
+      *          tryT should be(a[com.thoughtworks.tryt.covariant.TryT[UnitContinuation, _]])
+      *          }}}
+      *
+      */
     @inline
     def unapply[A](future: Future[A]): Some[TryT[UnitContinuation, A]] = {
       Some(opacityTypes.toTryT(future))
@@ -171,7 +201,9 @@ object future {
 
   }
 
-  /** @template */
+  /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[Future]] that needs to be executed in parallel when using an [[scalaz.Applicative]] instance
+    * @template
+    */
   type ParallelFuture[A] = Future[A] @@ Parallel
 
   /** @template */

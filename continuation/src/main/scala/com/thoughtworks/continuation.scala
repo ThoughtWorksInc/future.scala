@@ -30,7 +30,7 @@ import scala.language.higherKinds
 import scala.language.existentials
 import scala.util.Try
 
-/**
+/** The name space that contains [[Continuation]] and utilities for `Continuation`.
   * @author 杨博 (Yang Bo)
   */
 object continuation {
@@ -86,7 +86,7 @@ object continuation {
     */
   type UnitContinuation[+A] = Continuation[Unit, A]
 
-  /**
+  /** Extension methods for [[Continuation]]
     * @group Implicit Views
     */
   implicit final class ContinuationOps[R, A](val underlying: Continuation[R, A]) extends AnyVal {
@@ -126,7 +126,7 @@ object continuation {
     @volatile var result: Option[A] = None
   }
 
-  /**
+  /** Extension methods for [[UnitContinuation]]
     * @group Implicit Views
     */
   implicit final class UnitContinuationOps[A](val underlying: UnitContinuation[A]) extends AnyVal {
@@ -159,7 +159,7 @@ object continuation {
     }
   }
 
-  /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[UnitContinuation]] that needs to be executed in parallel when using an Applicative instance
+  /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[UnitContinuation]] that needs to be executed in parallel when using an [[scalaz.Applicative]] instance
     *
     * @example Given two [[ParallelContinuation]]s that contain immediate values,
     *
@@ -422,7 +422,7 @@ object continuation {
       *          {{{
       *          import com.thoughtworks.continuation.Continuation
       *          val Continuation(contT) = Continuation.now[Unit, Int](42)
-      *          contT should be(a[scalaz.ContT[_, _, _]])
+      *          contT should be(a[scalaz.ContT[scalaz.Free.Trampoline, _, _]])
       *          }}}
       *
       */
