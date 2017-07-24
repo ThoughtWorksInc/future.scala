@@ -96,6 +96,11 @@ object continuation {
       Continuation.safeOnComplete(continuation)(continue)
     }
 
+    @inline
+    def reset(implicit aAsR: A <:< R): R = {
+      onComplete(aAsR)
+    }
+
   }
 
   implicit final class UnitContinuationOps[A](continuation: UnitContinuation[A]) {
