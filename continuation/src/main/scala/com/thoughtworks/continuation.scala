@@ -58,6 +58,7 @@ object continuation {
 
   }
 
+  @inline
   private[continuation] val opacityTypes: OpacityTypes = new OpacityTypes {
     type Continuation[R, +A] = ContT[Trampoline, R, _ <: A]
 
@@ -65,35 +66,53 @@ object continuation {
     def fromContT[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = contT
   }
 
-  /** An asynchronous task like `com.thoughtworks.continuation.Continuation` with additional benifits:
-    *
-    *  - Stack safe
-    *  - Support covariant
-    *  - Support both JVM and Scala.js
-    *
+  /** The stack-safe and covariant version of [[scalaz.Cont]].
+    * @note The underlying type of this `Continuation` is `ContT[Trampoline, R, _ <: A]`.
+    * @see [[ContinuationOps]] for extension methods for this `Continuation`.
+    * @see [[UnitContinuation]] if you want to use this `Continuation` as an asynchronous task.
     * @template
     */
   type Continuation[R, +A] = opacityTypes.Continuation[R, A]
 
-  /**
+  /** A [[Continuation]] whose response type is [[scala.Unit]].
+    *
+    * This `UnitContinuation` type can be used as an asynchronous task.
+    *
+    * @see [[UnitContinuationOps]] for extension methods for this `UnitContinuationOps`.
+    * @see [[ParallelContinuation]] for parallel version of this `UnitContinuation`.
+    * @note This `UnitContinuation` type does not support exception handling.
+    * @see [[com.thoughtworks.future.Future Future]] for asynchronous task that supports exception handling.
     * @template
     */
   type UnitContinuation[+A] = Continuation[Unit, A]
 
-  implicit final class ContinuationOps[R, A](continuation: Continuation[R, A]) {
+  /**
+    * @group Implicit Views
+    */
+  implicit final class ContinuationOps[R, A](val underlying: Continuation[R, A]) extends AnyVal {
+
+    /** Runs the [[underlying]] continuation.
+      *
+      * @param continue the callback function that will be called once the [[underlying]] continuation complete.
+      * @note The JVM call stack will grow if there are recursive calls to [[onComplete]] in `continue`.
+      *       A `StackOverflowError` may occurs if the recursive calls are very deep.
+      * @see [[safeOnComplete]] in case of `StackOverflowError`.
+      *
+      */
     @inline
     def onComplete(continue: A => R): R = {
       opacityTypes
-        .toContT(continuation)
+        .toContT(underlying)
         .run { a =>
           Trampoline.delay(continue(a))
         }
         .run
     }
 
+    /** Runs the [[underlying]] continuation like [[onComplete]], except this `safeOnComplete` is stack-safe. */
     @inline
     def safeOnComplete(continue: A => Trampoline[R]): Trampoline[R] = {
-      Continuation.safeOnComplete(continuation)(continue)
+      Continuation.safeOnComplete(underlying)(continue)
     }
 
     @inline
@@ -103,35 +122,46 @@ object continuation {
 
   }
 
-  implicit final class UnitContinuationOps[A](continuation: UnitContinuation[A]) {
+  private final class BlockingState[A] {
+    @volatile var result: Option[A] = None
+  }
+
+  /**
+    * @group Implicit Views
+    */
+  implicit final class UnitContinuationOps[A](val underlying: UnitContinuation[A]) extends AnyVal {
+
+    /** Returns a memorized [[scala.concurrent.Future]] for the [[underlying]] [[UnitContinuation]].*/
     def toScalaFuture: Future[A] = {
       val promise = Promise[A]
-      ContinuationOps[Unit, A](continuation).onComplete { a =>
+      ContinuationOps[Unit, A](underlying).onComplete { a =>
         val _ = promise.success(a)
       }
       promise.future
     }
 
+    /** Blocking waits and returns the result value of the [[underlying]] [[UnitContinuation]].*/
     def blockingAwait(): A = {
-      val lock = new AnyRef
-      lock.synchronized {
-        @volatile var result: Option[A] = None
-        continuation.onComplete { a =>
-          lock.synchronized {
-            result = Some(a)
-            lock.notify()
+      val state = new BlockingState[A]
+      state.synchronized {
+        underlying.onComplete { a =>
+          state.synchronized {
+            state.result = Some(a)
+            state.notify()
           }
         }
-        while (result.isEmpty) {
-          lock.wait()
+        while (state.result.isEmpty) {
+          state.wait()
         }
-        val Some(a) = result
-        a
       }
+      val Some(a) = state.result
+      a
     }
   }
 
-  /** @example Given two [[ParallelContinuation]]s that contain immediate values,
+  /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[UnitContinuation]] that needs to be executed in parallel when using an Applicative instance
+    *
+    * @example Given two [[ParallelContinuation]]s that contain immediate values,
     *
     *          {{{
     *          import com.thoughtworks.continuation._
@@ -203,6 +233,9 @@ object continuation {
     */
   type ParallelContinuation[A] = UnitContinuation[A] @@ Parallel
 
+  /**
+    * @group Type class instances
+    */
   implicit object continuationParallelApplicative
       extends Applicative[ParallelContinuation]
       with Zip[ParallelContinuation] {
@@ -290,32 +323,34 @@ object continuation {
 
   }
 
+
+  /** The companion object for [[Continuation]].
+    *
+    */
   object Continuation {
 
-    def async[R, A](run: (A => R) => R): Continuation[R, A] = {
+    /** Returns a [[Continuation]] of an asynchronous operation.
+      *
+      * @see [[safeAsync]] in case of `StackOverflowError`.
+      */
+    def async[R, A](start: (A => R) => R): Continuation[R, A] = {
       safeAsync { continue =>
         Trampoline.delay {
-          run { a =>
+          start { a =>
             continue(a).run
           }
         }
       }
     }
 
-    def execute[A](a: => A)(implicit executionContext: ExecutionContext): Continuation[Unit, A] = {
-      async { continue: (A => Unit) =>
-        executionContext.execute(new Runnable {
-          override def run(): Unit = continue(a)
-        })
-      }
-    }
-
+    /** Returns a [[Continuation]] whose value is always `a`. */
     @inline
     def now[R, A](a: A): Continuation[R, A] = Continuation.safeAsync(_(a))
 
+    /** Returns a [[Continuation]] of a blocking operation */
     @inline
-    def delay[R, A](a: => A): Continuation[R, A] = Continuation.safeAsync { continue =>
-      suspend(continue(a))
+    def delay[R, A](block: => A): Continuation[R, A] = Continuation.safeAsync { continue =>
+      suspend(continue(block))
     }
 
     @inline
@@ -326,21 +361,36 @@ object continuation {
       }
     }
 
-    def safeAsync[R, A](run: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
-      opacityTypes.fromContT[R, A](ContT(run))
+    /** Returns a [[Continuation]] of an asynchronous operation like [[async]] except this method is stack-safe. */
+    def safeAsync[R, A](start: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
+      opacityTypes.fromContT[R, A](ContT(start))
     }
 
+    /** Creates a [[Continuation]] from the raw [[scalaz.ContT]] */
     @inline
     def apply[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
       opacityTypes.fromContT(contT)
     }
 
+    /** Extracts the underlying [[scalaz.ContT]] of `continuation`
+      *
+      * @example This `unapply` can be used in pattern matching expression.
+      *          {{{
+      *          import com.thoughtworks.continuation.Continuation
+      *          val Continuation(contT) = Continuation.now[Unit, Int](42)
+      *          contT should be(a[scalaz.ContT[_, _, _]])
+      *          }}}
+      *
+      */
     @inline
     def unapply[R, A](continuation: Continuation[R, A]): Some[ContT[Trampoline, R, _ <: A]] = {
       Some(opacityTypes.toContT[R, A](continuation))
     }
   }
 
+  /**
+    * @group Type class instances
+    */
   @inline
   implicit def continuationMonad[R]
     : Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] =

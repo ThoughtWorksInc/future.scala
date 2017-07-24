@@ -27,7 +27,8 @@ import scala.util.{Success, Try}
 import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
 
-/**
+/** The name space that contains [[Future]] and utilities for `Future`.
+  *
   * @author 杨博 (Yang Bo)
   */
 object future {
@@ -59,17 +60,27 @@ object future {
     }
   }
 
+  /**
+    * @group Type class instances
+    */
   @inline
   implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
     opacityTypes.futureMonadError
   }
 
+  /**
+    * @group Type class instances
+    */
   @inline
   implicit def futureParallelApplicative(
       implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
     opacityTypes.futureParallelApplicative
   }
 
+  /**
+    *
+    * @group Implicit Views
+    */
   implicit final class ScalaFutureToThoughtworksFutureOps[A](scalaFuture: scala.concurrent.Future[A]) {
     def toThoughtworksFuture(implicit executionContext: ExecutionContext): Future[A] = {
       Future.async { continue =>
@@ -78,12 +89,20 @@ object future {
     }
   }
 
+  /**
+    *
+    * @group Implicit Views
+    */
   implicit final class UnitContinuationToThoughtworksFutureOps[A](continuation: UnitContinuation[A]) {
     def toThoughtworksFuture: Future[A] = {
       Future(TryT(continuation.map(Try(_))))
     }
   }
 
+  /**
+    *
+    * @group Implicit Views
+    */
   implicit final class ThoughtworksFutureOps[A](future: Future[A]) {
     @inline
     def toScalaFuture: scala.concurrent.Future[A] = {
@@ -99,9 +118,9 @@ object future {
     }
 
     @inline
-    def safeOnComplete(handler: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {
+    def safeOnComplete(continue: Try[A] => Trampoline[Unit]): Trampoline[Unit] = {
       val Future(TryT(continuation)) = future
-      continuation.safeOnComplete(handler)
+      continuation.safeOnComplete(continue)
     }
 
     @inline
@@ -115,24 +134,24 @@ object future {
   object Future {
 
     def safeAsync[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
-      fromContinuation(Continuation.safeAsync(run))
+      fromContinuation(UnitContinuation.safeAsync(run))
     }
 
     def async[A](run: (Try[A] => Unit) => Unit): Future[A] = {
-      fromContinuation(Continuation.async(run))
+      fromContinuation(UnitContinuation.async(run))
     }
 
     def execute[A](a: => A)(implicit executionContext: ExecutionContext): Future[A] = {
-      fromContinuation(Continuation.execute(Try(a)))
+      fromContinuation(UnitContinuation.execute(Try(a)))
     }
 
     @inline
     def now[A](a: A): Future[A] = {
-      fromContinuation(Continuation.now(Success(a)))
+      fromContinuation(UnitContinuation.now(Success(a)))
     }
 
     def delay[A](a: => A): Future[A] = {
-      fromContinuation(Continuation.delay(Try(a)))
+      fromContinuation(UnitContinuation.delay(Try(a)))
     }
 
     @inline
@@ -144,8 +163,9 @@ object future {
     def unapply[A](future: Future[A]): Some[TryT[UnitContinuation, A]] = {
       Some(opacityTypes.toTryT(future))
     }
+
     @inline
-    private def fromContinuation[A](continuation: Continuation[Unit, Try[A]]): Future[A] = {
+    private def fromContinuation[A](continuation: UnitContinuation[Try[A]]): Future[A] = {
       apply(TryT[UnitContinuation, A](continuation))
     }
 
