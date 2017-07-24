@@ -18,7 +18,7 @@ trait ContinuationToScalaFuture extends AsyncFreeSpec {
     import com.thoughtworks.continuation._
 
     val promise = Promise[A]
-    continuation.onComplete(promise.success(_))
+    continuation.onComplete(promise.success)
     promise.future
   }
 }

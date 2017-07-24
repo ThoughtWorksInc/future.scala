@@ -88,7 +88,7 @@ object future {
     @inline
     def toScalaFuture: scala.concurrent.Future[A] = {
       val promise = scala.concurrent.Promise[A]
-      onComplete(promise.complete(_))
+      onComplete(promise.complete)
       promise.future
     }
 
