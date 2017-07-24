@@ -323,6 +323,50 @@ object continuation {
 
   }
 
+  object UnitContinuation {
+
+    /** Returns a [[UnitContinuation]] of a blocking operation that will run on `executionContext`. */
+    def execute[A](a: => A)(implicit executionContext: ExecutionContext): UnitContinuation[A] = {
+      Continuation.async { continue: (A => Unit) =>
+        executionContext.execute(new Runnable {
+          override def run(): Unit = continue(a)
+        })
+      }
+    }
+
+    /** A synonym of [[Continuation.async]] */
+    def async[A](start: (A => Unit) => Unit): UnitContinuation[A] = {
+      Continuation.async(start)
+    }
+
+    /** A synonym of [[Continuation.now]] */
+    @inline
+    def now[A](a: A): UnitContinuation[A] = {
+      Continuation.now(a)
+    }
+
+    /** A synonym of [[Continuation.delay]] */
+    def delay[A](a: => A): UnitContinuation[A] = {
+      Continuation.delay(a)
+    }
+
+    /** A synonym of [[Continuation.safeAsync]] */
+    def safeAsync[A](start: (A => Trampoline[Unit]) => Trampoline[Unit]): UnitContinuation[A] = {
+      Continuation.safeAsync(start)
+    }
+
+    /** A synonym of [[Continuation.apply]] */
+    @inline
+    def apply[A](contT: ContT[Trampoline, Unit, _ <: A]): UnitContinuation[A] = {
+      Continuation.apply(contT)
+    }
+
+    /** A synonym of [[Continuation.unapply]] */
+    @inline
+    def unapply[A](continuation: UnitContinuation[A]): Some[ContT[Trampoline, Unit, _ <: A]] = {
+      Continuation.unapply[Unit, A](continuation)
+    }
+  }
 
   /** The companion object for [[Continuation]].
     *
