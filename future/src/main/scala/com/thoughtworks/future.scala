@@ -16,18 +16,29 @@
 
 package com.thoughtworks
 
-import scalaz.syntax.all._
+import java.nio.channels.CompletionHandler
+
 import com.thoughtworks.continuation._
 import com.thoughtworks.tryt.covariant.TryT
 
 import scala.concurrent.ExecutionContext
 import scalaz.{@@, Applicative, BindRec, MonadError, Semigroup}
 import scala.language.higherKinds
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 import scalaz.Free.Trampoline
 import scalaz.Tags.Parallel
 
 /** The name space that contains [[Future]] and utilities for `Future`.
+  *
+  * == Usage ==
+  *
+  * Features of [[Future]] are provided as implicit views or type classes.
+  * To enable those features, import all members under [[future]] along with Scalaz syntax.
+  *
+  * {{{
+  * import scalaz.syntax.all._
+  * import com.thoughtworks.future._
+  * }}}
   *
   * @author 杨博 (Yang Bo)
   */
@@ -152,8 +163,8 @@ object future {
       *
       * @see [[safeAsync]] in case of `StackOverflowError`.
       */
-    def async[A](run: (Try[A] => Unit) => Unit): Future[A] = {
-      fromContinuation(UnitContinuation.async(run))
+    def async[A](start: (Try[A] => Unit) => Unit): Future[A] = {
+      fromContinuation(UnitContinuation.async(start))
     }
 
     /** Returns a [[Future]] of a blocking operation that will run on `executionContext`. */
@@ -206,7 +217,45 @@ object future {
     */
   type ParallelFuture[A] = Future[A] @@ Parallel
 
-  /** @template */
+  /** An asynchronous task.
+    *
+    * @note A [[Future]] can be memorized manually
+    *       by converting this [[Future]] to a [[scala.concurrent.Future]] and then converting back,
+    *
+    *       {{{
+    *       var count = 0
+    *       val notMemorized = Future.delay {
+    *         count += 1
+    *       }
+    *       val memorized = notMemorized.toScalaFuture.toThoughtworksFuture
+    *       for {
+    *         _ <- memorized
+    *         _ = count should be(1)
+    *         _ <- memorized
+    *         _ = count should be(1)
+    *         _ <- memorized
+    *       } yield (count should be(1))
+    *       }}}
+    *
+    * @note Unlike [[scala.concurrent.Future]], this [[Future]] is not memorized by default.
+    *
+    *       {{{
+    *       var count = 0
+    *       val notMemorized = Future.delay {
+    *         count += 1
+    *       }
+    *       count should be(0)
+    *       for {
+    *         _ <- notMemorized
+    *         _ = count should be(1)
+    *         _ <- notMemorized
+    *         _ = count should be(2)
+    *         _ <- notMemorized
+    *       } yield (count should be(3))
+    *       }}}
+    *
+    * @template
+    */
   type Future[+A] = opacityTypes.Future[A]
 
 }
