@@ -18,6 +18,7 @@ package com.thoughtworks
 
 import java.nio.channels.CompletionHandler
 
+import scalaz.syntax.all._
 import com.thoughtworks.continuation._
 import com.thoughtworks.tryt.covariant.TryT
 
