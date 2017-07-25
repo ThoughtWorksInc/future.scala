@@ -141,7 +141,7 @@ object future {
 
   }
 
-  object Future {
+  object Future extends JvmFutureCompanion {
 
     /** Returns a [[Future]] of an asynchronous operation like [[async]] except this method is stack-safe. */
     def safeAsync[A](run: (Try[A] => Trampoline[Unit]) => Trampoline[Unit]): Future[A] = {
