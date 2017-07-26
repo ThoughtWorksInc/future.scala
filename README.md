@@ -1,5 +1,7 @@
 # future.scala <a href="http://thoughtworks.com/"><img align="right" src="https://www.thoughtworks.com/imgs/tw-logo.png" alt="ThoughtWorks" height="15"/></a>
 
+[![Join the chat at https://gitter.im/ThoughtWorksInc/future.scala](https://badges.gitter.im/ThoughtWorksInc/future.scala.svg)](https://gitter.im/ThoughtWorksInc/future.scala?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![Build Status](https://travis-ci.org/ThoughtWorksInc/future.scala.svg?branch=1.0.x)](https://travis-ci.org/ThoughtWorksInc/future.scala)
 [![Latest version](https://index.scala-lang.org/thoughtworksinc/future.scala/future/latest.svg)](https://index.scala-lang.org/thoughtworksinc/future.scala/future)
 [![Scaladoc](https://javadoc.io/badge/com.thoughtworks.future/future_2.11.svg?label=scaladoc)](https://javadoc.io/page/com.thoughtworks.future/future_2.11/latest/com/thoughtworks/future$$Future.html)
