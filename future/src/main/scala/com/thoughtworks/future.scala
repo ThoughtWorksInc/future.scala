@@ -288,7 +288,7 @@ object future {
   /** An asynchronous task.
     *
     * @note A [[Future]] can be memorized manually
-    *       by converting this [[Future]] to a [[scala.concurrent.Future]] and then converting back,
+    *       by converting this [[Future]] to a [[scala.concurrent.Future]] and then converting back.
     *
     *       {{{
     *       var count = 0
