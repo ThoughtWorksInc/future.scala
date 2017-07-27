@@ -138,7 +138,7 @@ See [this example](https://github.com/ThoughtWorksInc/RAII.scala/blob/d6390ba439
 * [ThoughtWorks Each](https://github.com/ThoughtWorksInc/each) provides `async`/`await`-like syntax for this project.
 * [tryt.scala](https://github.com/ThoughtWorksInc/TryT.scala) provides exception handling monad transformers for this project.
 * [RAII.scala](https://github.com/ThoughtWorksInc/RAII.scala) uses this project for asynchronous automatic resource management。
-* [DeepLearning.scala](http://deeplearning.thoughtworks.school/) uses this project for aysnchronous executed neural networks.
+* [DeepLearning.scala](http://deeplearning.thoughtworks.school/) uses this project for asynchronous executed neural networks.
 
 ## Links
 
