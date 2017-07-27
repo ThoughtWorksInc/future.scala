@@ -215,6 +215,73 @@ object future {
 
   /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[Future]] that needs to be executed in parallel when using an [[scalaz.Applicative]] instance
     * @template
+    *
+    * @note The [[scalaz.Applicative Applicative]] type class for this `ParallelFuture` requires a `Semigroup[Throwable]`,
+    *       which can be implemented by merging multiple `Throwable`s into a container `Throwable`
+    *
+    *       {{{
+    *       import scala.util.control.NoStackTrace
+    *       case class MultipleException(throwableSet: Set[Throwable]) extends Exception("Multiple exceptions found") with NoStackTrace {
+    *         override def toString: String = throwableSet.mkString(" & ")
+    *       }
+    *
+    *       import scalaz.Semigroup
+    *       implicit object ThrowableSemigroup extends Semigroup[Throwable] {
+    *         override def append(f1: Throwable, f2: => Throwable): Throwable =
+    *           f1 match {
+    *             case MultipleException(exceptionSet1) =>
+    *               f2 match {
+    *                 case MultipleException(exceptionSet2) => MultipleException(exceptionSet1 ++ exceptionSet2)
+    *                 case _: Throwable                     => MultipleException(exceptionSet1 + f2)
+    *               }
+    *             case _: Throwable =>
+    *               f2 match {
+    *                 case MultipleException(exceptionSet2) => MultipleException(exceptionSet2 + f1)
+    *                 case _: Throwable                     => MultipleException(Set(f1, f2))
+    *               }
+    *           }
+    *       }
+    *       }}}
+    *
+    *       Given a momorized [[Future]],
+    *       {{{
+    *       val futureA: Future[String] = Future.execute("a").toScalaFuture.toThoughtworksFuture
+    *       }}}
+    *
+    *       and two `ParallelFuture`s that throw exceptions,
+    *
+    *       {{{
+    *       import scalaz.Tags.Parallel
+    *       def futureB(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Exception("b failed"); a + "b" })
+    *       def futureC(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Exception("c failed"); a + "c" })
+    *       }}}
+    *
+    *       and a `Future` that depends on two [[scala.Predef.String String]] values.
+    *
+    *       {{{
+    *       def futureD(b: String, c: String): Future[String] = Future.execute(b + c + "d")
+    *       }}}
+    *
+    *       When combining those futures together,
+    *
+    *       {{{
+    *       val futureResult = futureA.flatMap { a =>
+    *         Parallel.unwrap(futureB(a) tuple futureC(a)).flatMap { case (b, c) =>
+    *           futureD(b, c)
+    *         }
+    *       }
+    *       }}}
+    *
+    *       then multiple exceptions should be handled together.
+    *
+    *       {{{
+    *       futureResult.handleError {
+    *         case MultipleException(throwables) if throwables.map(_.getMessage) == Set("b failed", "c failed") =>
+    *           Future.now("Multiple exceptions handled")
+    *       }.map {
+    *         _ should be("Multiple exceptions handled")
+    *       }.toScalaFuture
+    *       }}}
     */
   type ParallelFuture[A] = Future[A] @@ Parallel
 
@@ -228,14 +295,16 @@ object future {
     *       val notMemorized = Future.delay {
     *         count += 1
     *       }
-    *       val memorized = notMemorized.toScalaFuture.toThoughtworksFuture
-    *       for {
-    *         _ <- memorized
-    *         _ = count should be(1)
-    *         _ <- memorized
-    *         _ = count should be(1)
-    *         _ <- memorized
-    *       } yield (count should be(1))
+    *       val memorized = notMemorized.toScalaFuture.toThoughtworksFuture;
+    *       (
+    *         for {
+    *           _ <- memorized
+    *           _ = count should be(1)
+    *           _ <- memorized
+    *           _ = count should be(1)
+    *           _ <- memorized
+    *         } yield (count should be(1))
+    *       ).toScalaFuture
     *       }}}
     *
     * @note Unlike [[scala.concurrent.Future]], this [[Future]] is not memorized by default.
@@ -245,14 +314,16 @@ object future {
     *       val notMemorized = Future.delay {
     *         count += 1
     *       }
-    *       count should be(0)
-    *       for {
-    *         _ <- notMemorized
-    *         _ = count should be(1)
-    *         _ <- notMemorized
-    *         _ = count should be(2)
-    *         _ <- notMemorized
-    *       } yield (count should be(3))
+    *       count should be(0);
+    *       (
+    *         for {
+    *           _ <- notMemorized
+    *           _ = count should be(1)
+    *           _ <- notMemorized
+    *           _ = count should be(2)
+    *           _ <- notMemorized
+    *         } yield (count should be(3))
+    *       ).toScalaFuture
     *       }}}
     *
     * @template

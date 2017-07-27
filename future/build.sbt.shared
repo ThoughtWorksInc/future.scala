@@ -16,5 +16,3 @@ exampleSuperTypes ~= { oldExampleSuperTypes =>
 }
 
 exampleSuperTypes += "_root_.org.scalatest.Inside"
-
-exampleSuperTypes += "_root_.com.thoughtworks.future_test.ThoughtworksFutureToScalaFuture"

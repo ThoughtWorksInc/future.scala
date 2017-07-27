@@ -66,7 +66,7 @@ private[thoughtworks] trait JvmFutureCompanion { this: Future.type =>
     *            } finally {
     *              channel.close()
     *            }
-    *          }
+    *          }.toScalaFuture
     *          }}}
     */
   def nio[A](start: (NioAttachment[A], CompletionHandler[A, NioAttachment[A]]) => Unit): Future[A] = {
