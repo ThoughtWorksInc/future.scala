@@ -17,9 +17,9 @@ future.scala inherits many design decision from Stateless Future.
 <thead>
 <tr>
 <td></td>
-<th><code>com.thoughtworks.future.Future[+A]</code></th>
-<th><code>scalaz.concurrent.Task[A]</code></th>
-<th><code>scala.concurrent.Future[+A]</code></th>
+<th><code>com.thoughtworks.future.Future</code></th>
+<th><code>scalaz.concurrent.Task</code></th>
+<th><code>scala.concurrent.Future</code></th>
 </tr>
 <tr>
 <th>Stateless</th>
