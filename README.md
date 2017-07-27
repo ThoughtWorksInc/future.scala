@@ -7,7 +7,7 @@
 
 **future.scala** is the spiritual successor to [Stateless Future](https://github.com/qifun/stateless-future) for stack-safe asynchronous programming in pure functional flavor. We dropped the Stateless Future's built-in `async`/`await` support, in favor of more general `monadic`/`each` syntax provided by [ThoughtWorks Each](https://github.com/ThoughtWorksInc/each).
 
-future.scala provide an API similar to `scala.concurrent.Future` or `scalaz.concurrent.Task`, except future.scala never throws a `StackOverflowError`.
+future.scala provide an API similar to `scala.concurrent.Future` or `scalaz.concurrent.Task`, except future.scala does not throw the `StackOverflowError`.
 
 ## Design
 
