@@ -51,6 +51,18 @@ future.scala inherits many design decision from Stateless Future.
 <td>No</td>
 <td>No</td>
 </tr>
+<tr>
+<th>Support JVM</th>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<th>Support Scala.js</th>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
 </thead>
 </table>
 
