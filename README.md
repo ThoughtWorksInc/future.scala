@@ -81,7 +81,7 @@ Why does he need multiple threading models? Because the libraries that he uses d
 
 Think about somebody who uses Swing to develop a text editor software. He wants to create a state machine to update UI. He have heard the cool `scala.async`, then he uses the cool "A-Normal Form" expression in `async` to build the state machine that updates UI, and he types `import scala.concurrent.ExecutionContext.Implicits._` to suppress the compiler errors. Everything looks pretty, except the software always crashes.
 
-Fortunately, future.scala depends on none of these threading model, and cooperates with all of these threading models. If the poor guy tries Stateless Future, replacing `async { }` to `monadic[Future] { }`, deleting the `import scala.concurrent.ExecutionContext.Implicits._`, he will find that everything looks pretty like before, and does not crash any more. That's why threading-free model is important.
+Fortunately, future.scala depends on none of these threading model, and cooperates with all of these threading models. If the poor guy tries future.scala, replacing `async { }` to `monadic[Future] { }`, deleting the `import scala.concurrent.ExecutionContext.Implicits._`, he will find that everything looks pretty like before, and does not crash any more. That's why threading-free model is important.
 
 ### Exception Handling
 
@@ -132,15 +132,15 @@ future.scala project is internally based on `scalaz.Trampoline`, and automatical
 
 See [this example](https://github.com/ThoughtWorksInc/RAII.scala/blob/d6390ba439356d3f50891f4b501547bb2748cb6a/asynchronous/src/test/scala/com/thoughtworks/raii/asynchronousSpec.scala#L59). The example creates 30000 stack levels recursively. And it just works, without any `StackOverflowError` or `OutOfMemoryError`. Note that if you port this example for `scala.async` it will throw an `OutOfMemoryError` or a `TimeoutException`.
 
-## Related projects
+## Links
+
+* [API Documentation](https://javadoc.io/page/com.thoughtworks.future/future_2.11/latest/com/thoughtworks/future$$Future.html)
+* [Gitter Room](https://gitter.im/ThoughtWorksInc/future.scala)
+
+### Related projects
 
 * [Scalaz](http://scalaz.org/) provides type classes and underlying data structures for this project.
 * [ThoughtWorks Each](https://github.com/ThoughtWorksInc/each) provides `async`/`await`-like syntax for this project.
 * [tryt.scala](https://github.com/ThoughtWorksInc/TryT.scala) provides exception handling monad transformers for this project.
 * [RAII.scala](https://github.com/ThoughtWorksInc/RAII.scala) uses this project for asynchronous automatic resource management。
 * [DeepLearning.scala](http://deeplearning.thoughtworks.school/) uses this project for asynchronous executed neural networks.
-
-## Links
-
-* [API Documentation](https://javadoc.io/page/com.thoughtworks.future/future_2.11/latest/com/thoughtworks/future$$Future.html)
-* [Gitter Room](https://gitter.im/ThoughtWorksInc/future.scala)
