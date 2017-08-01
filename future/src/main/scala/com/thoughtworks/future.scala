@@ -287,41 +287,41 @@ object future {
 
   /** An asynchronous task.
     *
-    * @note A [[Future]] can be memorized manually
+    * @note A [[Future]] can be memoized manually
     *       by converting this [[Future]] to a [[scala.concurrent.Future]] and then converting back.
     *
     *       {{{
     *       var count = 0
-    *       val notMemorized = Future.delay {
+    *       val notMemoized = Future.delay {
     *         count += 1
     *       }
-    *       val memorized = notMemorized.toScalaFuture.toThoughtworksFuture;
+    *       val memoized = notMemoized.toScalaFuture.toThoughtworksFuture;
     *       (
     *         for {
-    *           _ <- memorized
+    *           _ <- memoized
     *           _ = count should be(1)
-    *           _ <- memorized
+    *           _ <- memoized
     *           _ = count should be(1)
-    *           _ <- memorized
+    *           _ <- memoized
     *         } yield (count should be(1))
     *       ).toScalaFuture
     *       }}}
     *
-    * @note Unlike [[scala.concurrent.Future]], this [[Future]] is not memorized by default.
+    * @note Unlike [[scala.concurrent.Future]], this [[Future]] is not memoized by default.
     *
     *       {{{
     *       var count = 0
-    *       val notMemorized = Future.delay {
+    *       val notMemoized = Future.delay {
     *         count += 1
     *       }
     *       count should be(0);
     *       (
     *         for {
-    *           _ <- notMemorized
+    *           _ <- notMemoized
     *           _ = count should be(1)
-    *           _ <- notMemorized
+    *           _ <- notMemoized
     *           _ = count should be(2)
-    *           _ <- notMemorized
+    *           _ <- notMemoized
     *         } yield (count should be(3))
     *       ).toScalaFuture
     *       }}}
