@@ -325,7 +325,7 @@ object future {
     *         } yield (count should be(3))
     *       ).toScalaFuture
     *       }}}
-    *
+    * @see [[ThoughtworksFutureOps]] for methods available on this [[Future]].
     * @template
     */
   type Future[+A] = opacityTypes.Future[A]
