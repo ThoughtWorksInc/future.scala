@@ -325,6 +325,7 @@ object future {
     *         } yield (count should be(3))
     *       ).toScalaFuture
     *       }}}
+    * @see [[ParallelFuture]] for parallel version of this [[Future]].
     * @see [[ThoughtworksFutureOps]] for methods available on this [[Future]].
     * @template
     */
