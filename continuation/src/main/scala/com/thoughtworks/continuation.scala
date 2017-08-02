@@ -355,6 +355,10 @@ object continuation {
       Continuation.safeAsync(start)
     }
 
+    def suspend[A](continuation: => UnitContinuation[A]): UnitContinuation[A] = {
+      Continuation.suspend(continuation)
+    }
+
     /** A synonym of [[Continuation.apply]] */
     @inline
     def apply[A](contT: ContT[Trampoline, Unit, _ <: A]): UnitContinuation[A] = {
@@ -394,13 +398,13 @@ object continuation {
     /** Returns a [[Continuation]] of a blocking operation */
     @inline
     def delay[R, A](block: => A): Continuation[R, A] = Continuation.safeAsync { continue =>
-      suspend(continue(block))
+      com.thoughtworks.continuation.suspend(continue(block))
     }
 
     @inline
     private[thoughtworks] def safeOnComplete[R, A](continuation: Continuation[R, A])(
         continue: A => Trampoline[R]): Trampoline[R] = {
-      suspend {
+      com.thoughtworks.continuation.suspend {
         opacityTypes.toContT(continuation).run(continue)
       }
     }
@@ -408,6 +412,10 @@ object continuation {
     /** Returns a [[Continuation]] of an asynchronous operation like [[async]] except this method is stack-safe. */
     def safeAsync[R, A](start: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
       opacityTypes.fromContT[R, A](ContT(start))
+    }
+
+    def suspend[R, A](continuation: => Continuation[R, A]): Continuation[R, A] = {
+      safeAsync(continuation.safeOnComplete)
     }
 
     /** Creates a [[Continuation]] from the raw [[scalaz.ContT]] */

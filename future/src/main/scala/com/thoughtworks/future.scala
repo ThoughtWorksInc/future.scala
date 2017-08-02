@@ -211,6 +211,10 @@ object future {
       apply(TryT[UnitContinuation, A](continuation))
     }
 
+    def suspend[A](future: => Future[A]) = {
+      Future.safeAsync(future.safeOnComplete)
+    }
+
   }
 
   /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[Future]] that needs to be executed in parallel when using an [[scalaz.Applicative]] instance
