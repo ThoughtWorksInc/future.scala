@@ -36,7 +36,7 @@ import scala.util.Try
 object continuation {
 
   @inline
-  private def suspend[R](a: => Trampoline[R]) = Trampoline.suspend(a)
+  private def suspendTrampoline[R](a: => Trampoline[R]) = Trampoline.suspend(a)
 
   private[continuation] trait OpacityTypes {
     type Continuation[R, +A]
@@ -273,7 +273,7 @@ object continuation {
                 val forkState = new AtomicReference[ParallelZipState[A, B]](GotA(a))
                 listenB(forkState)
               case GotB(b) =>
-                suspend {
+                suspendTrampoline {
                   continue((a, b))
                 }
             }
@@ -294,7 +294,7 @@ object continuation {
                 val forkState = new AtomicReference[ParallelZipState[A, B]](GotB(b))
                 listenA(forkState)
               case GotA(a) =>
-                suspend {
+                suspendTrampoline {
                   continue((a, b))
                 }
             }
@@ -398,13 +398,13 @@ object continuation {
     /** Returns a [[Continuation]] of a blocking operation */
     @inline
     def delay[R, A](block: => A): Continuation[R, A] = Continuation.safeAsync { continue =>
-      com.thoughtworks.continuation.suspend(continue(block))
+      suspendTrampoline(continue(block))
     }
 
     @inline
     private[thoughtworks] def safeOnComplete[R, A](continuation: Continuation[R, A])(
         continue: A => Trampoline[R]): Trampoline[R] = {
-      com.thoughtworks.continuation.suspend {
+      suspendTrampoline {
         opacityTypes.toContT(continuation).run(continue)
       }
     }
@@ -474,7 +474,7 @@ object continuation {
               case -\/(a) =>
                 loop(a)
               case \/-(b) =>
-                suspend(continue(b))
+                suspendTrampoline(continue(b))
             }
           }
           loop(a)
@@ -484,7 +484,7 @@ object continuation {
       override def map[A, B](fa: Continuation[R, A])(f: (A) => B): Continuation[R, B] = {
         Continuation.safeAsync { (continue: B => Trampoline[R]) =>
           Continuation.safeOnComplete(fa) { a: A =>
-            suspend(continue(f(a)))
+            suspendTrampoline(continue(f(a)))
           }
         }
       }
