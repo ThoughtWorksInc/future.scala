@@ -415,7 +415,9 @@ object continuation {
     }
 
     def suspend[R, A](continuation: => Continuation[R, A]): Continuation[R, A] = {
-      safeAsync(continuation.safeOnComplete)
+      safeAsync { continue =>
+        continuation.safeOnComplete(continue)
+      }
     }
 
     /** Creates a [[Continuation]] from the raw [[scalaz.ContT]] */
