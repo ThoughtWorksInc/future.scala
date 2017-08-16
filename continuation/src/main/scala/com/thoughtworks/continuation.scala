@@ -437,7 +437,9 @@ object continuation {
     /** Creates a [[Continuation]] from the raw [[scalaz.ContT]] */
     @inline
     def fromContT[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
-      opacityTypes.fromFunction(contT.run)
+      opacityTypes.fromFunction[R, A] { continue =>
+        contT.run(continue)
+      }
     }
 
     /** Extracts the underlying [[scalaz.ContT]] of `continuation`
