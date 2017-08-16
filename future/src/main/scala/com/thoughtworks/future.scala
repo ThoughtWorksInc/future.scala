@@ -211,8 +211,10 @@ object future {
       apply(TryT[UnitContinuation, A](continuation))
     }
 
-    def suspend[A](future: => Future[A]) = {
-      Future.safeAsync(future.safeOnComplete)
+    def suspend[A](future: => Future[A]): Future[A] = {
+      Future.safeAsync { continue =>
+        future.safeOnComplete(continue)
+      }
     }
 
   }
