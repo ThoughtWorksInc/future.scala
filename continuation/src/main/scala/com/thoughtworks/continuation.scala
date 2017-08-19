@@ -386,12 +386,8 @@ object continuation {
     */
   object Continuation {
 
-    /** Returns a [[Continuation]] of an asynchronous operation.
-      *
-      * @see [[safeAsync]] in case of `StackOverflowError`.
-      */
-    def async[R, A](start: (A => R) => R): Continuation[R, A] = {
-      safeAsync { continue =>
+    private final case class Async[R, A](start: (A => R) => R) extends ((A => Trampoline[R]) => Trampoline[R]) {
+      override def apply(continue: (A) => Trampoline[R]): Trampoline[R] = {
         Trampoline.delay {
           start { a =>
             continue(a).run
@@ -400,15 +396,29 @@ object continuation {
       }
     }
 
+    /** Returns a [[Continuation]] of an asynchronous operation.
+      *
+      * @see [[safeAsync]] in case of `StackOverflowError`.
+      */
+    def async[R, A](start: (A => R) => R): Continuation[R, A] = {
+      safeAsync(Async(start))
+    }
+
+    private final case class Now[R, A](a: A) extends ((A => Trampoline[R]) => Trampoline[R]) {
+      override def apply(continue: (A) => Trampoline[R]): Trampoline[R] = continue(a)
+    }
+
     /** Returns a [[Continuation]] whose value is always `a`. */
     @inline
-    def now[R, A](a: A): Continuation[R, A] = Continuation.safeAsync(_(a))
+    def now[R, A](a: A): Continuation[R, A] = safeAsync(Now(a))
+
+    private final case class Delay[R, A](block: () => A) extends ((A => Trampoline[R]) => Trampoline[R]) {
+      override def apply(continue: (A) => Trampoline[R]): Trampoline[R] = suspendTrampoline(continue(block()))
+    }
 
     /** Returns a [[Continuation]] of a blocking operation */
     @inline
-    def delay[R, A](block: => A): Continuation[R, A] = Continuation.safeAsync { continue =>
-      suspendTrampoline(continue(block))
-    }
+    def delay[R, A](block: => A): Continuation[R, A] = safeAsync(Delay(block _))
 
     @inline
     private[thoughtworks] def safeOnComplete[R, A](continuation: Continuation[R, A])(
@@ -423,10 +433,15 @@ object continuation {
       opacityTypes.fromFunction[R, A](start)
     }
 
-    def suspend[R, A](continuation: => Continuation[R, A]): Continuation[R, A] = {
-      safeAsync { continue =>
-        continuation.safeOnComplete(continue)
+    final case class Suspend[R, A](continuation: () => Continuation[R, A])
+        extends ((A => Trampoline[R]) => Trampoline[R]) {
+      def apply(continue: (A) => Trampoline[R]): Trampoline[R] = {
+        continuation().safeOnComplete(continue)
       }
+    }
+
+    def suspend[R, A](continuation: => Continuation[R, A]): Continuation[R, A] = {
+      safeAsync(Suspend(continuation _))
     }
 
     @inline
@@ -458,6 +473,48 @@ object continuation {
     }
   }
 
+  private final case class Bind[R, A, B](fa: Continuation[R, A], f: (A) => Continuation[R, B])
+      extends ((B => Trampoline[R]) => Trampoline[R]) {
+    def apply(continue: (B) => Trampoline[R]): Trampoline[R] = {
+      Continuation.safeOnComplete[R, A](fa) { a =>
+        Continuation.safeOnComplete[R, B](f(a))(continue)
+      }
+    }
+  }
+  private final case class Map[R, A, B](fa: Continuation[R, A], f: (A) => B)
+      extends ((B => Trampoline[R]) => Trampoline[R]) {
+    def apply(continue: (B) => Trampoline[R]): Trampoline[R] = {
+      Continuation.safeOnComplete(fa) { a: A =>
+        suspendTrampoline(continue(f(a)))
+      }
+    }
+  }
+
+  private final case class Join[R, A](ffa: Continuation[R, Continuation[R, A]])
+      extends ((A => Trampoline[R]) => Trampoline[R]) {
+    def apply(continue: A => Trampoline[R]): Trampoline[R] = {
+      Continuation.safeOnComplete[R, Continuation[R, A]](ffa) { fa =>
+        Continuation.safeOnComplete[R, A](fa)(continue)
+      }
+    }
+  }
+
+  private final case class TailrecM[R, A, B](f: (A) => Continuation[R, A \/ B], a: A)
+      extends ((B => Trampoline[R]) => Trampoline[R]) {
+    def apply(continue: (B) => Trampoline[R]): Trampoline[R] = {
+      def loop(a: A): Trampoline[R] = {
+        Continuation.safeOnComplete(f(a)) {
+          case -\/(a) =>
+            loop(a)
+          case \/-(b) =>
+            suspendTrampoline(continue(b))
+        }
+      }
+      loop(a)
+    }
+
+  }
+
   /**
     * @group Type class instances
     */
@@ -472,42 +529,24 @@ object continuation {
       }
 
       override def bind[A, B](fa: Continuation[R, A])(f: (A) => Continuation[R, B]): Continuation[R, B] = {
-        Continuation.safeAsync { (continue: B => Trampoline[R]) =>
-          Continuation.safeOnComplete[R, A](fa) { a =>
-            Continuation.safeOnComplete[R, B](f(a))(continue)
-          }
-        }
+        Continuation.safeAsync(Bind(fa, f))
       }
 
       @inline
       override def point[A](a: => A): Continuation[R, A] = {
-        opacityTypes.fromFunction(_(a))
+        Continuation.delay(a)
       }
 
       override def tailrecM[A, B](f: (A) => Continuation[R, A \/ B])(a: A): Continuation[R, B] = {
-        Continuation.safeAsync { (continue: B => Trampoline[R]) =>
-          def loop(a: A): Trampoline[R] = {
-            Continuation.safeOnComplete(f(a)) {
-              case -\/(a) =>
-                loop(a)
-              case \/-(b) =>
-                suspendTrampoline(continue(b))
-            }
-          }
-          loop(a)
-        }
+        Continuation.safeAsync(TailrecM(f, a))
       }
 
       override def map[A, B](fa: Continuation[R, A])(f: (A) => B): Continuation[R, B] = {
-        Continuation.safeAsync { (continue: B => Trampoline[R]) =>
-          Continuation.safeOnComplete(fa) { a: A =>
-            suspendTrampoline(continue(f(a)))
-          }
-        }
+        Continuation.safeAsync(Map(fa, f))
       }
 
       override def join[A](ffa: Continuation[R, Continuation[R, A]]): Continuation[R, A] = {
-        bind[Continuation[R, A], A](ffa)(identity)
+        Continuation.safeAsync(Join(ffa))
       }
     }
 }
