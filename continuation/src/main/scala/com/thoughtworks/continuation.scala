@@ -521,7 +521,7 @@ object continuation {
   @inline
   implicit def continuationMonad[R]
     : Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] =
-    new Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] {
+    new Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] with Serializable {
 
       @inline
       override def zip[A, B](a: => Continuation[R, A], b: => Continuation[R, B]): Continuation[R, (A, B)] = {
