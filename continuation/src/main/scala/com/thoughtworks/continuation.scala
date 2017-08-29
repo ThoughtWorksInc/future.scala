@@ -59,7 +59,7 @@ object continuation {
   }
 
   @inline
-  private[continuation] val opacityTypes: OpacityTypes = new OpacityTypes {
+  private[continuation] val opacityTypes: OpacityTypes = new Serializable with OpacityTypes {
     type Continuation[R, +A] = (A => Trampoline[R]) => Trampoline[R]
 
     def toFunction[R, A](continuation: Continuation[R, A]): (A => Trampoline[R]) => Trampoline[R] = continuation
@@ -332,7 +332,7 @@ object continuation {
     /** Returns a [[UnitContinuation]] of a blocking operation that will run on `executionContext`. */
     def execute[A](a: => A)(implicit executionContext: ExecutionContext): UnitContinuation[A] = {
       Continuation.async { continue: (A => Unit) =>
-        executionContext.execute(new Runnable {
+        executionContext.execute(new Serializable with Runnable {
           override def run(): Unit = continue(a)
         })
       }
@@ -521,7 +521,7 @@ object continuation {
   @inline
   implicit def continuationMonad[R]
     : Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] =
-    new Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]] with Serializable {
+    new Serializable with Monad[Continuation[R, `+?`]] with BindRec[Continuation[R, `+?`]] with Zip[Continuation[R, `+?`]]  {
 
       @inline
       override def zip[A, B](a: => Continuation[R, A], b: => Continuation[R, B]): Continuation[R, (A, B)] = {

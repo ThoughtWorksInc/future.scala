@@ -94,22 +94,22 @@ Unlike `scala.actors.Future`s, `scala.concurrent.Future`s are designed to handle
     import scala.concurrent.duration.Duration
     import scala.util.control.Exception.Catcher
     import scala.concurrent.forkjoin.ForkJoinPool
-    val threadPool = new ForkJoinPool()
+    val threadPool = new Serializable with ForkJoinPool()
     val catcher1: Catcher[Unit] = { case e: Exception => println("catcher1") }
     val catcher2: Catcher[Unit] = {
       case e: java.io.IOException => println("catcher2")
-      case other: Exception => throw new RuntimeException(other)
+      case other: Exception => throw new Serializable with RuntimeException(other)
     }
     val catcher3: Catcher[Unit] = {
       case e: java.io.IOException => println("catcher3")
-      case other: Exception => throw new RuntimeException(other)
+      case other: Exception => throw new Serializable with RuntimeException(other)
     }
     val catcher4: Catcher[Unit] = { case e: Exception => println("catcher4") }
     val catcher5: Catcher[Unit] = { case e: Exception => println("catcher5") }
     val catcher6: Catcher[Unit] = { case e: Exception => println("catcher6") }
     val catcher7: Catcher[Unit] = { case e: Exception => println("catcher7") }
     def future1 = scala.concurrent.future { 1 }(ExecutionContext.fromExecutor(threadPool, catcher1))
-    def future2 = scala.concurrent.Future.failed(new Exception)
+    def future2 = scala.concurrent.Future.failed(new Serializable with Exception)
     val composedFuture = future1.flatMap { _ => future2 }(ExecutionContext.fromExecutor(threadPool, catcher2))
     composedFuture.onFailure(catcher3)(ExecutionContext.fromExecutor(threadPool, catcher4))
     composedFuture.onFailure(catcher5)(ExecutionContext.fromExecutor(threadPool, catcher6))
@@ -117,7 +117,7 @@ Unlike `scala.actors.Future`s, `scala.concurrent.Future`s are designed to handle
 
 Is any sane developer able to tell which catchers will receive the exceptions?
 
-There are too many concepts about exceptions when you work with `scala.concurrent.Future`. You have to remember the different exception handling strategies between `flatMap`, `recover`, `recoverWith` and `onFailure`, and the difference between `scala.concurrent.Future.failed(new Exception)` and `scala.concurrent.future { throw new Exception }`.
+There are too many concepts about exceptions when you work with `scala.concurrent.Future`. You have to remember the different exception handling strategies between `flatMap`, `recover`, `recoverWith` and `onFailure`, and the difference between `scala.concurrent.Future.failed(new Serializable with Exception)` and `scala.concurrent.future { throw new Serializable with Exception }`.
 
 `scala.async` does not make things better, because `scala.async` will [produce a compiler error](https://github.com/scala/async/blob/master/src/test/scala/scala/async/neg/NakedAwait.scala#L104) for every `await` in a `try` statement.
 

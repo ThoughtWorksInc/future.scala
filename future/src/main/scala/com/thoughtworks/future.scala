@@ -54,7 +54,7 @@ object future {
     def futureParallelApplicative(implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture]
   }
 
-  private[future] val opacityTypes: OpacityTypes = new OpacityTypes {
+  private[future] val opacityTypes: OpacityTypes = new Serializable with OpacityTypes {
     type Future[+A] = TryT[UnitContinuation, A]
 
     @inline
@@ -258,8 +258,8 @@ object future {
     *
     *       {{{
     *       import scalaz.Tags.Parallel
-    *       def futureB(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Exception("b failed"); a + "b" })
-    *       def futureC(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Exception("c failed"); a + "c" })
+    *       def futureB(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Serializable with Exception("b failed"); a + "b" })
+    *       def futureC(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Serializable with Exception("c failed"); a + "c" })
     *       }}}
     *
     *       and a `Future` that depends on two [[scala.Predef.String String]] values.
