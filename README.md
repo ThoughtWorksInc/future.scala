@@ -75,7 +75,7 @@ Also, there is no `isComplete` method in future.scala. As a result, the users of
 
 ### Threading-free Model
 
-There are too many threading models and implimentations in the Java/Scala world, `java.util.concurrent.Executor`, `scala.concurrent.ExecutionContext`, `javax.swing.SwingUtilities.invokeLater`, `java.util.Timer`, ... It is very hard to communicate between threading models. When a developer is working with multiple threading models, he must very carefully pass messages between threading models, or he have to maintain bulks of `synchronized` methods to properly deal with the shared variables between threads.
+There are too many threading models and implementations in the Java/Scala world, `java.util.concurrent.Executor`, `scala.concurrent.ExecutionContext`, `javax.swing.SwingUtilities.invokeLater`, `java.util.Timer`, ... It is very hard to communicate between threading models. When a developer is working with multiple threading models, he must very carefully pass messages between threading models, or he have to maintain bulks of `synchronized` methods to properly deal with the shared variables between threads.
 
 Why does he need multiple threading models? Because the libraries that he uses depend on different threading modes. For example, you must update Swing components in the Swing's UI thread, you must specify `java.util.concurrent.ExecutionService`s for `java.nio.channels.CompletionHandler`, and, you must specify `scala.concurrent.ExecutionContext`s for `scala.concurrent.Future` and `scala.async.Async`. Oops!
 
