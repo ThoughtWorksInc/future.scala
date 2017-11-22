@@ -70,7 +70,7 @@ future.scala inherits many design decision from Stateless Future.
 
 future.scala are pure functional, thus they will never store result values or exceptions. Instead, future.scala evaluate lazily, and they do the same job every time you invoke `onComplete`.
 
-Also, there is no `isComplete` method in future.scala. As a result, the users of future.scala are forced not to share futures between threads, not to check the states in futures. They have to care about control flows instead of threads, and build the control flows by defining future.scala.
+Also, there is no `isComplete` method in our futures. As a result, the users of future.scala are forced not to share futures between threads, not to check the states in futures. They have to care about control flows instead of threads, and build the control flows by creating futures.
 
 
 ### Threading-free Model
