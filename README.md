@@ -130,6 +130,22 @@ Tail call optimization is an important feature for pure functional programming. 
 
 future.scala project is internally based on `scalaz.Trampoline`, and automatically performs tail call optimization in the magic `Future` blocks, without any additional special syntax.
 
+Here is a trivial example:
+
+```scala
+import scalaz.syntax.all._
+import com.thoughtworks.raii.asynchronous._
+import com.thoughtworks.continuation._
+
+def v: UnitContinuation[Unit] = UnitContinuation.now(Unit)
+
+def f(x: Int): UnitContinuation[Unit] = v.flatMap { _ => g(x+1) }
+
+def g(x: Int): UnitContinuation[Unit] = v.flatMap { _ => f(x+1) }
+```
+
+Calling `f(0).blockingAwait` results in an infinite loop without stack overflow. Mutually recursive calls are also fine in this case, as long as the calls are tail calls.
+
 See [this example](https://github.com/ThoughtWorksInc/RAII.scala/blob/d6390ba439356d3f50891f4b501547bb2748cb6a/asynchronous/src/test/scala/com/thoughtworks/raii/asynchronousSpec.scala#L59). The example creates 30000 stack levels recursively. And it just works, without any `StackOverflowError` or `OutOfMemoryError`. Note that if you port this example for `scala.async` it will throw an `OutOfMemoryError` or a `TimeoutException`.
 
 ## Links
