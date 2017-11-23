@@ -128,7 +128,7 @@ Fortunately, you can get rid of all those concepts if you switch to future.scala
 Tail call optimization is an important feature for pure functional programming. Without tail call optimization, many recursive algorithm will fail at run-time, and you will get the well-known `StackOverflowError`.
 
 
-future.scala project is internally based on `scalaz.Trampoline`, and automatically performs tail call optimization in the magic `Future` blocks, without any additional special syntax.
+future.scala project is internally based on `scalaz.Trampoline`, and automatically performs tail call optimization in the [ThoughtWorks Each](https://github.com/ThoughtWorksInc/each)'s `monadic[com.thoughtworks.future.Future]` blocks, without any additional special syntax.
 
 Here is a trivial example:
 
