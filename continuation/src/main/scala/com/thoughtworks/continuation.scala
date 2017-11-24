@@ -319,7 +319,8 @@ object continuation {
 
     override def ap[A, B](fa: => ParallelContinuation[A])(
         f: => ParallelContinuation[(A) => B]): ParallelContinuation[B] = {
-      Parallel(continuationMonad.map[(A, A => B), B](Parallel.unwrap[UnitContinuation[(A, A => B)]](tuple2(fa, f))) {
+      import scalaz.syntax.tag._
+      Parallel(continuationMonad[Unit].map[(A, A => B), B](tuple2(fa, f).unwrap) {
         pair: (A, A => B) =>
           pair._2(pair._1)
       })

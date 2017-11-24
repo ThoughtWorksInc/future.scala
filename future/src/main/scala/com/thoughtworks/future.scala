@@ -16,6 +16,7 @@
 
 package com.thoughtworks
 
+import java.io.{PrintStream, PrintWriter}
 import java.nio.channels.CompletionHandler
 
 import scalaz.syntax.all._
@@ -44,6 +45,59 @@ import scalaz.Tags.Parallel
   * @author 杨博 (Yang Bo)
   */
 object future {
+  implicit object multipleExceptionThrowableSemigroup extends Semigroup[Throwable] {
+    override def append(f1: Throwable, f2: => Throwable): Throwable =
+      f1 match {
+        case MultipleException(exceptionSet1) =>
+          f2 match {
+            case MultipleException(exceptionSet2) => MultipleException(exceptionSet1 ++ exceptionSet2)
+            case e: Throwable                     => MultipleException(exceptionSet1 + e)
+          }
+        case _: Throwable =>
+          f2 match {
+            case MultipleException(exceptionSet2) => MultipleException(exceptionSet2 + f1)
+            case `f1`                             => f1
+            case e: Throwable                     => MultipleException(Set(f1, e))
+          }
+      }
+  }
+  final case class MultipleException(throwableSet: Set[Throwable])
+      extends RuntimeException("Multiple exceptions found") {
+    override def toString: String = throwableSet.mkString("\n")
+
+    override def printStackTrace(): Unit = {
+      for (throwable <- throwableSet) {
+        throwable.printStackTrace()
+      }
+    }
+
+    override def printStackTrace(s: PrintStream): Unit = {
+      for (throwable <- throwableSet) {
+        throwable.printStackTrace(s)
+      }
+    }
+
+    override def printStackTrace(s: PrintWriter): Unit = {
+      for (throwable <- throwableSet) {
+        throwable.printStackTrace(s)
+      }
+    }
+
+    override def getStackTrace: Array[StackTraceElement] = synchronized {
+      super.getStackTrace match {
+        case null =>
+          setStackTrace(throwableSet.flatMap(_.getStackTrace)(collection.breakOut))
+          super.getStackTrace
+        case stackTrace =>
+          stackTrace
+      }
+    }
+
+    override def fillInStackTrace(): this.type = {
+      this
+    }
+
+  }
 
   private trait OpacityTypes {
     type Future[+A]
@@ -221,73 +275,6 @@ object future {
 
   /** [[scalaz.Tags.Parallel Parallel]]-tagged type of [[Future]] that needs to be executed in parallel when using an [[scalaz.Applicative]] instance
     * @template
-    *
-    * @note The [[scalaz.Applicative Applicative]] type class for this `ParallelFuture` requires a `Semigroup[Throwable]`,
-    *       which can be implemented by merging multiple `Throwable`s into a container `Throwable`
-    *
-    *       {{{
-    *       import scala.util.control.NoStackTrace
-    *       case class MultipleException(throwableSet: Set[Throwable]) extends Exception("Multiple exceptions found") with NoStackTrace {
-    *         override def toString: String = throwableSet.mkString(" & ")
-    *       }
-    *
-    *       import scalaz.Semigroup
-    *       implicit object ThrowableSemigroup extends Semigroup[Throwable] {
-    *         override def append(f1: Throwable, f2: => Throwable): Throwable =
-    *           f1 match {
-    *             case MultipleException(exceptionSet1) =>
-    *               f2 match {
-    *                 case MultipleException(exceptionSet2) => MultipleException(exceptionSet1 ++ exceptionSet2)
-    *                 case _: Throwable                     => MultipleException(exceptionSet1 + f2)
-    *               }
-    *             case _: Throwable =>
-    *               f2 match {
-    *                 case MultipleException(exceptionSet2) => MultipleException(exceptionSet2 + f1)
-    *                 case _: Throwable                     => MultipleException(Set(f1, f2))
-    *               }
-    *           }
-    *       }
-    *       }}}
-    *
-    *       Given a momorized [[Future]],
-    *       {{{
-    *       val futureA: Future[String] = Future.execute("a").toScalaFuture.toThoughtworksFuture
-    *       }}}
-    *
-    *       and two `ParallelFuture`s that throw exceptions,
-    *
-    *       {{{
-    *       import scalaz.Tags.Parallel
-    *       def futureB(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Exception("b failed"); a + "b" })
-    *       def futureC(a: String): ParallelFuture[String] = Parallel(Future.execute { throw new Exception("c failed"); a + "c" })
-    *       }}}
-    *
-    *       and a `Future` that depends on two [[scala.Predef.String String]] values.
-    *
-    *       {{{
-    *       def futureD(b: String, c: String): Future[String] = Future.execute(b + c + "d")
-    *       }}}
-    *
-    *       When combining those futures together,
-    *
-    *       {{{
-    *       val futureResult = futureA.flatMap { a =>
-    *         Parallel.unwrap(futureB(a) tuple futureC(a)).flatMap { case (b, c) =>
-    *           futureD(b, c)
-    *         }
-    *       }
-    *       }}}
-    *
-    *       then multiple exceptions should be handled together.
-    *
-    *       {{{
-    *       futureResult.handleError {
-    *         case MultipleException(throwables) if throwables.map(_.getMessage) == Set("b failed", "c failed") =>
-    *           Future.now("Multiple exceptions handled")
-    *       }.map {
-    *         _ should be("Multiple exceptions handled")
-    *       }.toScalaFuture
-    *       }}}
     */
   type ParallelFuture[A] = Future[A] @@ Parallel
 
