@@ -1,0 +1,3 @@
+[submodule "tryt.scala"]
+	path = tryt.scala
+	url = https://github.com/ThoughtWorksInc/tryt.scala.git

@@ -9,11 +9,11 @@ lazy val continuationJS = continuation.js.addSbtFiles(file("../build.sbt.shared"
 lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(continuation)
 
 lazy val futureJVM =
-  future.jvm.dependsOn(ProjectRef(file("../tryt.scala"), "covariantJVM")).addSbtFiles(file("../build.sbt.shared"))
+  future.jvm.dependsOn(ProjectRef(file("tryt.scala"), "covariantJVM")).addSbtFiles(file("../build.sbt.shared"))
 
 lazy val futureJS =
   future.js
-    .dependsOn(ProjectRef(file("../tryt.scala"), "covariantJS"))
+    .dependsOn(ProjectRef(file("tryt.scala"), "covariantJS"))
     .addSbtFiles(file("../build.sbt.shared"))
 
 lazy val unidoc = project

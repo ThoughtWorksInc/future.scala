@@ -244,6 +244,8 @@ object continuation {
       extends Applicative[ParallelContinuation]
       with Zip[ParallelContinuation] {
 
+    override def flip = this
+
     override def apply2[A, B, C](fa: => ParallelContinuation[A], fb: => ParallelContinuation[B])(
         f: (A, B) => C): ParallelContinuation[C] = {
       val Parallel(continuation) = tuple2(fa, fb)

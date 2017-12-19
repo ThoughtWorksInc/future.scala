@@ -20,7 +20,7 @@ import java.nio.channels.CompletionHandler
 
 import scalaz.syntax.all._
 import com.thoughtworks.continuation._
-import com.thoughtworks.tryt.covariant.TryT
+import com.thoughtworks.tryt.covariant._
 
 import scala.concurrent.ExecutionContext
 import scalaz.{@@, Applicative, BindRec, MonadError, Semigroup}
@@ -52,6 +52,16 @@ object future {
     def toTryT[A](future: Future[A]): TryT[UnitContinuation, A]
     def futureMonadError: MonadError[Future, Throwable] with BindRec[Future]
     def futureParallelApplicative(implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture]
+  }
+
+  private object FutureMonadError extends TryTBindRec[UnitContinuation] with TryTMonadError[UnitContinuation] {
+    def F = continuationMonad
+    def B = continuationMonad
+  }
+
+  private case class FutureParallelApplicative(throwableSemigroup: Semigroup[Throwable]) extends TryTParallelApplicative[UnitContinuation] {
+    def F = continuationParallelApplicative
+    def S = throwableSemigroup
   }
 
   private[future] val opacityTypes: OpacityTypes = new Serializable with OpacityTypes {
