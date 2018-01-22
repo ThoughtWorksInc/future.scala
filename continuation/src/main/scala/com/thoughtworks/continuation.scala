@@ -119,11 +119,10 @@ object continuation {
       Continuation.safeOnComplete(underlying)(continue)
     }
 
-    @inline
-    def reset(implicit aAsR: A <:< R): R = {
-      onComplete(aAsR)
-    }
-
+  }
+  @inline
+  def reset[A](continuation: Continuation[A, A]): A = {
+    continuation.onComplete(identity)
   }
 
   private final class BlockingState[A] {
