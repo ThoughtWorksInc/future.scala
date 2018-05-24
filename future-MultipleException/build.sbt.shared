@@ -1,0 +1,7 @@
+organization := "com.thoughtworks.future"
+
+name := "MultipleException"
+
+libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
+
+enablePlugins(Example)

@@ -44,62 +44,11 @@ import scalaz.Tags.Parallel
   *
   * @author 杨博 (Yang Bo)
   */
-object future {
-  implicit object multipleExceptionThrowableSemigroup extends Semigroup[Throwable] {
-    override def append(f1: Throwable, f2: => Throwable): Throwable =
-      f1 match {
-        case MultipleException(exceptionSet1) =>
-          f2 match {
-            case MultipleException(exceptionSet2) => MultipleException(exceptionSet1 ++ exceptionSet2)
-            case e: Throwable                     => MultipleException(exceptionSet1 + e)
-          }
-        case _: Throwable =>
-          f2 match {
-            case MultipleException(exceptionSet2) => MultipleException(exceptionSet2 + f1)
-            case `f1`                             => f1
-            case e: Throwable                     => MultipleException(Set(f1, e))
-          }
-      }
-  }
-  final case class MultipleException(throwableSet: Set[Throwable])
-      extends RuntimeException("Multiple exceptions found") {
-    override def toString: String = throwableSet.mkString("\n")
+package object future {
 
-    override def printStackTrace(): Unit = {
-      for (throwable <- throwableSet) {
-        throwable.printStackTrace()
-      }
-    }
+  implicit val multipleExceptionThrowableSemigroup = MultipleException.multipleExceptionThrowableSemigroup
 
-    override def printStackTrace(s: PrintStream): Unit = {
-      for (throwable <- throwableSet) {
-        throwable.printStackTrace(s)
-      }
-    }
-
-    override def printStackTrace(s: PrintWriter): Unit = {
-      for (throwable <- throwableSet) {
-        throwable.printStackTrace(s)
-      }
-    }
-
-    override def getStackTrace: Array[StackTraceElement] = synchronized {
-      super.getStackTrace match {
-        case null =>
-          setStackTrace(throwableSet.flatMap(_.getStackTrace)(collection.breakOut))
-          super.getStackTrace
-        case stackTrace =>
-          stackTrace
-      }
-    }
-
-    override def fillInStackTrace(): this.type = {
-      this
-    }
-
-  }
-
-  private trait OpacityTypes {
+  private[future] trait OpaqueTypes {
     type Future[+A]
     type ParallelFuture[A] = Future[A] @@ Parallel
     def fromTryT[A](tryT: TryT[UnitContinuation, A]): Future[A]
@@ -108,7 +57,7 @@ object future {
     def futureParallelApplicative(implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture]
   }
 
-  private[future] val opacityTypes: OpacityTypes = new OpacityTypes {
+  private[future] val opaqueTypes: OpaqueTypes = new OpaqueTypes {
     type Future[+A] = TryT[UnitContinuation, A]
 
     @inline
@@ -131,7 +80,7 @@ object future {
     */
   @inline
   implicit def futureMonadError: MonadError[Future, Throwable] with BindRec[Future] = {
-    opacityTypes.futureMonadError
+    opaqueTypes.futureMonadError
   }
 
   /**
@@ -140,7 +89,7 @@ object future {
   @inline
   implicit def futureParallelApplicative(
       implicit throwableSemigroup: Semigroup[Throwable]): Applicative[ParallelFuture] = {
-    opacityTypes.futureParallelApplicative
+    opaqueTypes.futureParallelApplicative
   }
 
   /** Extension methods for [[scala.concurrent.Future]]
@@ -241,7 +190,7 @@ object future {
     /** Creates a [[Future]] from the raw [[com.thoughtworks.tryt.covariant.TryT]] */
     @inline
     def apply[A](tryT: TryT[UnitContinuation, A]): Future[A] = {
-      opacityTypes.fromTryT(tryT)
+      opaqueTypes.fromTryT(tryT)
     }
 
     /** Extracts the underlying [[com.thoughtworks.tryt.covariant.TryT]] of `future`
@@ -257,7 +206,7 @@ object future {
       */
     @inline
     def unapply[A](future: Future[A]): Some[TryT[UnitContinuation, A]] = {
-      Some(opacityTypes.toTryT(future))
+      Some(opaqueTypes.toTryT(future))
     }
 
     @inline
@@ -322,6 +271,6 @@ object future {
     * @see [[ThoughtworksFutureOps]] for methods available on this [[Future]].
     * @template
     */
-  type Future[+A] = opacityTypes.Future[A]
+  type Future[+A] = opaqueTypes.Future[A]
 
 }
