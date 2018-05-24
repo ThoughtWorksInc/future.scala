@@ -6,11 +6,17 @@ lazy val continuationJVM = continuation.jvm.addSbtFiles(file("../build.sbt.share
 
 lazy val continuationJS = continuation.js.addSbtFiles(file("../build.sbt.shared"))
 
-lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(continuation)
+lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(continuation, `future-MultipleException`)
 
 lazy val futureJVM = future.jvm.addSbtFiles(file("../build.sbt.shared"))
 
 lazy val futureJS = future.js.addSbtFiles(file("../build.sbt.shared"))
+
+lazy val `future-MultipleException` = crossProject.crossType(CrossType.Pure)
+
+lazy val `future-MultipleExceptionJVM` = `future-MultipleException`.jvm.addSbtFiles(file("../build.sbt.shared"))
+
+lazy val `future-MultipleExceptionJS` = `future-MultipleException`.js.addSbtFiles(file("../build.sbt.shared"))
 
 lazy val unidoc = project
   .enablePlugins(StandaloneUnidoc, TravisUnidocTitle)

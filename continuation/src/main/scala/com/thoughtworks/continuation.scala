@@ -38,7 +38,7 @@ object continuation {
   @inline
   private def suspendTrampoline[R](a: => Trampoline[R]) = Trampoline.suspend(a)
 
-  private[continuation] trait OpacityTypes {
+  private[continuation] trait OpaqueTypes {
     type Continuation[R, +A]
     type ParallelContinuation[R, A] = Continuation[R, A] @@ Parallel
 
@@ -59,7 +59,7 @@ object continuation {
   }
 
   @inline
-  private[continuation] val opacityTypes: OpacityTypes = new OpacityTypes {
+  private[continuation] val opaqueTypes: OpaqueTypes = new OpaqueTypes {
     type Continuation[R, +A] = (A => Trampoline[R]) => Trampoline[R]
 
     def toFunction[R, A](continuation: Continuation[R, A]): (A => Trampoline[R]) => Trampoline[R] = continuation
@@ -72,7 +72,7 @@ object continuation {
     * @see [[UnitContinuation]] if you want to use this `Continuation` as an asynchronous task.
     * @template
     */
-  type Continuation[R, +A] = opacityTypes.Continuation[R, A]
+  type Continuation[R, +A] = opaqueTypes.Continuation[R, A]
 
   /** A [[Continuation]] whose response type is [[scala.Unit]].
     *
@@ -93,7 +93,7 @@ object continuation {
 
     @inline
     def toContT: ContT[Trampoline, R, A] = {
-      ContT[Trampoline, R, A](opacityTypes.toFunction[R, A](underlying))
+      ContT[Trampoline, R, A](opaqueTypes.toFunction[R, A](underlying))
     }
 
     /** Runs the [[underlying]] continuation.
@@ -106,7 +106,7 @@ object continuation {
       */
     @inline
     def onComplete(continue: A => R): R = {
-      opacityTypes
+      opaqueTypes
         .toFunction(underlying) { a =>
           Trampoline.delay(continue(a))
         }
@@ -424,13 +424,13 @@ object continuation {
     private[thoughtworks] def safeOnComplete[R, A](continuation: Continuation[R, A])(
         continue: A => Trampoline[R]): Trampoline[R] = {
       suspendTrampoline {
-        opacityTypes.toFunction(continuation)(continue)
+        opaqueTypes.toFunction(continuation)(continue)
       }
     }
 
     /** Returns a [[Continuation]] of an asynchronous operation like [[async]] except this method is stack-safe. */
     def safeAsync[R, A](start: (A => Trampoline[R]) => Trampoline[R]): Continuation[R, A] = {
-      opacityTypes.fromFunction[R, A](start)
+      opaqueTypes.fromFunction[R, A](start)
     }
 
     final case class Suspend[R, A](continuation: () => Continuation[R, A])
@@ -452,7 +452,7 @@ object continuation {
     /** Creates a [[Continuation]] from the raw [[scalaz.ContT]] */
     @inline
     def fromContT[R, A](contT: ContT[Trampoline, R, _ <: A]): Continuation[R, A] = {
-      opacityTypes.fromFunction[R, A] { continue =>
+      opaqueTypes.fromFunction[R, A] { continue =>
         contT.run(continue)
       }
     }
@@ -469,7 +469,7 @@ object continuation {
       */
     @inline
     def unapply[R, A](continuation: Continuation[R, A]): Some[(A => Trampoline[R]) => Trampoline[R]] = {
-      Some(opacityTypes.toFunction[R, A](continuation))
+      Some(opaqueTypes.toFunction[R, A](continuation))
     }
   }
 
