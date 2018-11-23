@@ -24,7 +24,7 @@ lazy val unidoc = project
     UnidocKeys.unidocProjectFilter in ScalaUnidoc in UnidocKeys.unidoc := {
       inDependencies(futureJVM)
     },
-    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8"),
+    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9"),
     scalacOptions += "-Xexperimental"
   )
 
