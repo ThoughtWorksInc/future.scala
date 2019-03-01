@@ -5,3 +5,10 @@ name := "MultipleException"
 libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
 
 enablePlugins(Example)
+
+libraryDependencies := libraryDependencies.value.map {
+  case moduleID @ ModuleID("org.scalameta", "paradise", _, _, _, _, _, _, _, _, _) =>
+    moduleID.withRevision("3.0.0-M11")
+  case moduleID =>
+    moduleID
+}
