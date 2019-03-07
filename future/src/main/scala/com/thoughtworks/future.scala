@@ -229,6 +229,25 @@ package object future {
 
   /** An asynchronous task.
     *
+    * @note Unlike [[scala.concurrent.Future]], this [[Future]] is not memoized by default.
+    *
+    *       {{{
+    *       var count = 0
+    *       val notMemoized = Future.delay {
+    *         count += 1
+    *       }
+    *       count should be(0);
+    *       (
+    *         for {
+    *           _ <- notMemoized
+    *           _ = count should be(1)
+    *           _ <- notMemoized
+    *           _ = count should be(2)
+    *           _ <- notMemoized
+    *         } yield (count should be(3))
+    *       ).toScalaFuture
+    *       }}}
+    *
     * @note A [[Future]] can be memoized manually
     *       by converting this [[Future]] to a [[scala.concurrent.Future]] and then converting back.
     *
@@ -246,25 +265,6 @@ package object future {
     *           _ = count should be(1)
     *           _ <- memoized
     *         } yield (count should be(1))
-    *       ).toScalaFuture
-    *       }}}
-    *
-    * @note Unlike [[scala.concurrent.Future]], this [[Future]] is not memoized by default.
-    *
-    *       {{{
-    *       var count = 0
-    *       val notMemoized = Future.delay {
-    *         count += 1
-    *       }
-    *       count should be(0);
-    *       (
-    *         for {
-    *           _ <- notMemoized
-    *           _ = count should be(1)
-    *           _ <- notMemoized
-    *           _ = count should be(2)
-    *           _ <- notMemoized
-    *         } yield (count should be(3))
     *       ).toScalaFuture
     *       }}}
     * @see [[ParallelFuture]] for parallel version of this [[Future]].
