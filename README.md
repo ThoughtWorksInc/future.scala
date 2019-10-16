@@ -160,3 +160,4 @@ See [this example](https://github.com/ThoughtWorksInc/RAII.scala/blob/d6390ba439
 * [tryt.scala](https://github.com/ThoughtWorksInc/TryT.scala) provides exception handling monad transformers for this project.
 * [RAII.scala](https://github.com/ThoughtWorksInc/RAII.scala) uses this project for asynchronous automatic resource management.
 * [DeepLearning.scala](http://deeplearning.thoughtworks.school/) uses this project for asynchronous executed neural networks.
+* [continuation.scala](https://github.com/Atry/continuation.scala) is the continuation library used by this project.
