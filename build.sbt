@@ -27,3 +27,5 @@ addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 scalacOptions += "-Xexperimental"
 
 publish / skip := true
+
+parallelExecution in Global := false
