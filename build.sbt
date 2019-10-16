@@ -1,31 +1,27 @@
-crossScalaVersions := Seq("2.11.12", "2.12.8")
+ThisBuild / organization := "com.thoughtworks.future"
 
-lazy val continuation = crossProject.crossType(CrossType.Pure)
+lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(`future-MultipleException`)
 
-lazy val continuationJVM = continuation.jvm.addSbtFiles(file("../build.sbt.shared"))
+lazy val futureJVM = future.jvm
 
-lazy val continuationJS = continuation.js.addSbtFiles(file("../build.sbt.shared"))
-
-lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(continuation, `future-MultipleException`)
-
-lazy val futureJVM = future.jvm.addSbtFiles(file("../build.sbt.shared"))
-
-lazy val futureJS = future.js.addSbtFiles(file("../build.sbt.shared"))
+lazy val futureJS = future.js
 
 lazy val `future-MultipleException` = crossProject.crossType(CrossType.Pure)
 
-lazy val `future-MultipleExceptionJVM` = `future-MultipleException`.jvm.addSbtFiles(file("../build.sbt.shared"))
+lazy val `future-MultipleExceptionJVM` = `future-MultipleException`.jvm
 
-lazy val `future-MultipleExceptionJS` = `future-MultipleException`.js.addSbtFiles(file("../build.sbt.shared"))
+lazy val `future-MultipleExceptionJS` = `future-MultipleException`.js
 
-lazy val unidoc = project
-  .enablePlugins(StandaloneUnidoc, TravisUnidocTitle)
-  .settings(
-    UnidocKeys.unidocProjectFilter in ScalaUnidoc in UnidocKeys.unidoc := {
-      inDependencies(futureJVM)
-    },
-    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9"),
-    scalacOptions += "-Xexperimental"
-  )
+enablePlugins(ScalaUnidocPlugin)
 
-publishArtifact := false
+ScalaUnidoc / unidoc / unidocProjectFilter := {
+  inDependencies(futureJVM)
+}
+
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
+
+scalacOptions += "-Xexperimental"
+
+publish / skip := true
+
+parallelExecution in Global := false
