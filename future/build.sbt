@@ -9,7 +9,7 @@ libraryDependencies += "com.thoughtworks.tryt" %%% "covariant" % "2.0.3"
 
 libraryDependencies += "com.thoughtworks.continuation" %%% "continuation" % "2.0.0"
 
-addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.10")
 
 enablePlugins(Example)
 
