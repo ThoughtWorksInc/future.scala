@@ -1,5 +1,3 @@
-organization := "com.thoughtworks.future"
-
 import meta._
 examplePackageRef := q"com.thoughtworks"
 

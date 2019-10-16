@@ -1,10 +1,6 @@
-lazy val continuation = crossProject.crossType(CrossType.Pure)
+ThisBuild / organization := "com.thoughtworks.future"
 
-lazy val continuationJVM = continuation.jvm
-
-lazy val continuationJS = continuation.js
-
-lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(continuation, `future-MultipleException`)
+lazy val future = crossProject.crossType(CrossType.Pure).dependsOn(`future-MultipleException`)
 
 lazy val futureJVM = future.jvm
 
