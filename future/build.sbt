@@ -9,7 +9,7 @@ libraryDependencies += "com.thoughtworks.tryt" %%% "covariant" % "2.0.4"
 
 libraryDependencies += "com.thoughtworks.continuation" %%% "continuation" % "2.0.0"
 
-addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
+addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
 
 enablePlugins(Example)
 
