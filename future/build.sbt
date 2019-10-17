@@ -5,7 +5,7 @@ libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
 
 libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.8" % Test
 
-libraryDependencies += "com.thoughtworks.tryt" %%% "covariant" % "2.0.4"
+libraryDependencies += "com.thoughtworks.tryt" %%% "covariant" % "2.1.1"
 
 libraryDependencies += "com.thoughtworks.continuation" %%% "continuation" % "2.0.0"
 
