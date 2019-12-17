@@ -3,7 +3,7 @@ examplePackageRef := q"com.thoughtworks"
 
 name := "MultipleException"
 
-libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
+libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.30"
 
 enablePlugins(Example)
 
