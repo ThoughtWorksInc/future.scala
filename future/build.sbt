@@ -3,7 +3,7 @@ examplePackageRef := q"com.thoughtworks"
 
 libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
 
-libraryDependencies += "org.scalatest" %%% "scalatest" % "3.1.0" % Test
+libraryDependencies += "org.scalatest" %%% "scalatest" % "3.1.1" % Test
 
 libraryDependencies += "com.thoughtworks.tryt" %%% "covariant" % "2.1.1"
 
