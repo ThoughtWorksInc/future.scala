@@ -1,7 +1,7 @@
 import meta._
 examplePackageRef := q"com.thoughtworks"
 
-libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.14"
+libraryDependencies += "org.scalaz" %%% "scalaz-core" % "7.2.31"
 
 libraryDependencies += "org.scalatest" %%% "scalatest" % "3.1.0" % Test
 
