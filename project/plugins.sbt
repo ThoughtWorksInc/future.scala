@@ -1,6 +1,6 @@
 addSbtPlugin("com.thoughtworks.sbt-best-practice" % "sbt-best-practice" % "7.1.1")
 
-libraryDependencies += "commons-io" % "commons-io" % "2.6"
+libraryDependencies += "commons-io" % "commons-io" % "2.11.0"
 
 addSbtPlugin("com.thoughtworks.sbt-scala-js-map" % "sbt-scala-js-map" % "4.0.0")
 
